@@ -63,6 +63,14 @@ entrega es una demo de 7 diapositivas o un video de 30 segundos.
 
 ## 3. Qué hace la app (todo funciona y está probado)
 
+0. **Globo 3D (portada):**
+   - 2.592 celdas de 5° con la tendencia de 5 variables;
+   - veredicto completo + FDR de Benjamini-Hochberg (q = 0,10); opaca solo si es significativa
+     y pasa el FDR;
+   - clic en una celda para abrir su veredicto;
+   - `react-globe.gl` cargado aparte, texturas NASA Blue/Black Marble, malla precalculada en
+     `backend/app/data/globe.json` (`make globe`, unos 15 min, reanudable) y servida en
+     `/api/globe`.
 1. **Preguntar:**
    - Pregunta libre: Claude o unas reglas la convierten en preocupación, tipo de lugar y lugar.
    - Lugar: buscador por nombre (Open-Meteo) o clic en el mapa (Leaflet). El país se detecta

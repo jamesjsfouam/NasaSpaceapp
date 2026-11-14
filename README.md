@@ -8,6 +8,13 @@ si algo está cambiando en **cualquier lugar del mundo**. Responde **qué** camb
 **preguntar → ver → veredicto**, según el análisis del equipo
 ([PDF](docs/Earth_System_Trend_Detective_analisis_y_solucion.pdf)).
 
+![Globo 3D: tendencia de la lluvia 1990–2025](docs/capturas/globo_lluvia.png)
+
+- **Globo 3D (portada):**
+  - el mundo entero de un vistazo: 2.592 celdas de 5° coloreadas con su tendencia
+    (temperatura, lluvia, humedad del suelo, humedad del aire, viento);
+  - con el mismo veredicto y control de falsos descubrimientos (FDR) para miles de pruebas;
+  - clic en una celda para abrir su veredicto.
 - **Preguntar:**
   - pregunta libre, que la IA o unas reglas convierten en variables del catálogo;
   - búsqueda por nombre o clic en el mapa, con detección automática del país;
@@ -98,6 +105,7 @@ docs/                      Método, ofertas globales y lista de entrega
 | `GET /api/satellite/landcover?lat=&lon=` | Cobertura del suelo anual y escenario de zona construida |
 | `GET /api/relate?variable=&indicator=&country=&lat=&lon=` | Relación con un indicador del Banco Mundial |
 | `POST /api/explain` `{kind, ...}` | Explicación en lenguaje llano (IA o plantilla) |
+| `GET /api/globe` | Malla global precalculada para el globo 3D |
 
 ## Comandos
 
@@ -108,6 +116,7 @@ docs/                      Método, ofertas globales y lista de entrega
 | `make notebook` | Abre JupyterLab |
 | `make build` | Compila la web para desplegar |
 | `make samples` | Vuelve a descargar las muestras sin conexión |
+| `make globe` | Recalcula la malla del globo 3D |
 
 Extras opcionales para otras fuentes (MODIS, GPM, AIRS, Planetary Computer) y la nube:
 `make setup-all`. Ver [docs/OFERTAS.md](docs/OFERTAS.md).

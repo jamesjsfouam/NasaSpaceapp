@@ -89,6 +89,25 @@ Extensiones que pidió el equipo, más allá del reto:
 de unos 30 años, los dos métodos sin la corrección de sesgo no se mantenían en el 5 %. Por eso
 añadimos la corrección y exigimos que coincidan los dos métodos.
 
+## Globo 3D (`scripts/build_globe.py` y `frontend/src/Globe3D.tsx`)
+
+Portada con el mundo entero de un vistazo.
+
+- **Malla:** 2.592 celdas de 5°. El centro de cada una se consulta en NASA POWER para 5
+  variables (1990–2025) y pasa por el **mismo motor del veredicto**.
+- **Control de falsos descubrimientos:** se aplica Benjamini-Hochberg con q = 0,10 sobre todas
+  las celdas de cada variable (hallazgo 4 del análisis). Una celda se pinta opaca solo si tiene
+  veredicto "significativa" **y** pasa el FDR; el resto queda casi transparente.
+- **Color:** muestra la pendiente con paletas divergentes. Azul/rojo en temperatura;
+  marrón/verde azulado en agua (más seco / más húmedo).
+- **Clic** en una celda: abre el veredicto completo de ese punto.
+- **Técnica:**
+  - `react-globe.gl` (three.js), cargado aparte para no pesar en la página principal;
+  - texturas NASA Blue Marble y Black Marble (GIBS, dominio público);
+  - la malla se precalcula (`make globe`) y se sirve como archivo, así que funciona sin conexión.
+- **Aviso del análisis:** "un globo 3D es vistoso pero no responde a las cuatro preguntas". Por
+  eso es la puerta de entrada, y el núcleo sigue siendo el veredicto.
+
 ## Previsión (`forecast.py`): un escenario, no una predicción
 
 - Extrapolación lineal de la serie anual con **intervalo de predicción del 95 %**:
