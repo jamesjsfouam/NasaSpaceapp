@@ -10,27 +10,37 @@ const CLASS_COLORS: Record<string, string> = {
 }
 
 export function SatelliteView({ lat, lon, label }: { lat: number; lon: number; label: string }) {
-  const [images, setImages] = useState<SatelliteImage[] | null>(null)
-  const [cover, setCover] = useState<LandCoverResponse | null>(null)
-  const [selected, setSelected] = useState(0)
-  const [errors, setErrors] = useState<string[]>([])
   const [toYear, setToYear] = useState(2035)
+  // Cada resultado guarda para qué punto se pidió: al cambiar de lugar se descarta solo, sin
+  // tener que vaciar el estado dentro del efecto.
+  const spot = `${lat},${lon}`
+  const coverKey = `${spot},${toYear}`
+  const [timeline, setTimeline] = useState<{ spot: string; images: SatelliteImage[] } | null>(null)
+  const [coverRes, setCoverRes] = useState<{ key: string; cover: LandCoverResponse } | null>(null)
+  const [pick, setPick] = useState<{ spot: string; i: number } | null>(null)
+  const [errorList, setErrorList] = useState<{ spot: string; message: string }[]>([])
+
+  const images = timeline?.spot === spot ? timeline.images : null
+  const cover = coverRes?.key === coverKey ? coverRes.cover : null
+  const selected = pick?.spot === spot ? pick.i : Math.max(0, (images?.length ?? 1) - 1)
+  const setSelected = (i: number) => setPick({ spot, i })
+  const errors = errorList.filter((e) => e.spot === spot).map((e) => e.message)
 
   useEffect(() => {
     let alive = true
-    setImages(null); setErrors([]); setSelected(0)
+    const key = `${lat},${lon}`
     api<SatelliteImage[]>(`/api/satellite/timeline?lat=${lat}&lon=${lon}`)
-      .then((d) => { if (alive) { setImages(d); setSelected(Math.max(0, d.length - 1)) } })
-      .catch((e: Error) => alive && setErrors((x) => [...x, e.message]))
+      .then((d) => alive && setTimeline({ spot: key, images: d }))
+      .catch((e: Error) => alive && setErrorList((x) => [...x, { spot: key, message: e.message }]))
     return () => { alive = false }
   }, [lat, lon])
 
   useEffect(() => {
     let alive = true
-    setCover(null)
+    const key = `${lat},${lon}`
     api<LandCoverResponse>(`/api/satellite/landcover?lat=${lat}&lon=${lon}&to_year=${toYear}`)
-      .then((d) => alive && setCover(d))
-      .catch((e: Error) => alive && setErrors((x) => [...x, e.message]))
+      .then((d) => alive && setCoverRes({ key: `${key},${toYear}`, cover: d }))
+      .catch((e: Error) => alive && setErrorList((x) => [...x, { spot: key, message: e.message }]))
     return () => { alive = false }
   }, [lat, lon, toYear])
 
