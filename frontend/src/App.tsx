@@ -3,10 +3,11 @@ import {
   api, DIRECTION_ARROW, fmt, fmtP, pText, SIGNIFICANCE_LABEL,
   type Catalog, type RegionTrend, type ScanResponse, type Trend, type TrendResponse,
 } from './api'
+import { RelateView } from './RelateView'
 import { TrendChart } from './TrendChart'
 
-type Tab = 'trend' | 'scan' | 'compare'
-type Query = { variable: string; lat: number; lon: number; start: number; label: string }
+type Tab = 'trend' | 'scan' | 'compare' | 'relate'
+type Query = { variable: string; lat: number; lon: number; start: number; label: string; country: string | null }
 
 const qs = (q: Query) => `lat=${q.lat}&lon=${q.lon}&start=${q.start}`
 
@@ -88,6 +89,7 @@ export default function App() {
     investigate({
       variable, start, lat: coords.lat, lon: coords.lon,
       label: region?.label ?? `${coords.lat}, ${coords.lon}`,
+      country: region?.country ?? null,
     })
   }
 
@@ -96,7 +98,7 @@ export default function App() {
     const r = cat?.regions.find((x) => x.id === d.region)
     if (!v || !r) return
     setTheme(v.theme); setVariable(v.key); setRegionId(r.id); setCoords({ lat: r.lat, lon: r.lon }); setStart(1990)
-    investigate({ variable: v.key, start: 1990, lat: r.lat, lon: r.lon, label: r.label })
+    investigate({ variable: v.key, start: 1990, lat: r.lat, lon: r.lon, label: r.label, country: r.country })
   }
 
   function openVariable(key: string) {
@@ -205,11 +207,17 @@ export default function App() {
             <button role="tab" aria-selected={tab === 'compare'} onClick={() => openTab('compare')}>
               Comparar regiones
             </button>
+            <button role="tab" aria-selected={tab === 'relate'} onClick={() => openTab('relate')}>
+              Clima y sociedad
+            </button>
           </div>
-          {busy && <p className="muted">Consultando datos de NASA…</p>}
+          {busy && tab !== 'relate' && <p className="muted">Consultando datos de NASA…</p>}
 
           {tab === 'trend' && trend && <TrendView data={trend} where={query.label} />}
           {tab === 'scan' && scan && <ScanView data={scan} onOpen={openVariable} />}
+          {tab === 'relate' && cat && (
+            <RelateView key={`${query.variable}-${query.lat}-${query.lon}-${query.start}`} cat={cat} query={query} />
+          )}
           {tab === 'compare' && compare && cat && (
             <CompareView rows={compare} variable={cat.variables.find((v) => v.key === query.variable)?.label ?? ''} />
           )}

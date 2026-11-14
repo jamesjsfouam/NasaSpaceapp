@@ -18,7 +18,12 @@ export type Variable = {
   definition: string
   ratio_scale: boolean
 }
-export type Region = { id: string; label: string; biome: string; lat: number; lon: number }
+export type Region = {
+  id: string; label: string; biome: string; lat: number; lon: number; country: string | null
+}
+export type Indicator = {
+  key: string; label: string; unit: string; definition: string; suggested_variable: string
+}
 export type Demo = { title: string; why: string; region: string; variable: string }
 
 export type Catalog = {
@@ -29,6 +34,8 @@ export type Catalog = {
   first_year: number
   last_year: number
   data_note: string
+  indicators: Indicator[]
+  countries: Record<string, string>
 }
 
 export type Significance = 'very' | 'yes' | 'weak' | 'no'
@@ -83,3 +90,33 @@ export const fmt = (x: number, digits = 3) =>
   x.toLocaleString('es', { maximumSignificantDigits: digits })
 export const fmtP = (p: number) => (p < 0.0001 ? '< 0,0001' : p.toFixed(4).replace('.', ','))
 export const pText = (p: number) => (p < 0.0001 ? 'p < 0,0001' : `p = ${fmtP(p)}`)
+
+export type RelationPoint = {
+  year: number; earth: number; indicator: number; earth_detrended: number; indicator_detrended: number
+}
+export type Relation = {
+  n_years: number
+  first_year: number
+  last_year: number
+  raw_r: number
+  raw_p: number
+  detrended_r: number
+  detrended_p: number
+  detrended_rho: number
+  detrended_rho_p: number
+  strength: 'débil' | 'moderada' | 'fuerte'
+  significant: boolean
+  trend_driven: boolean
+  interpretation: string
+  warnings: string[]
+  points: RelationPoint[]
+}
+export type RelateResponse = {
+  earth_source: string
+  indicator_source: string
+  country: string
+  country_label: string
+  indicator: Indicator
+  indicator_trend: Trend | null
+  relation: Relation
+}
