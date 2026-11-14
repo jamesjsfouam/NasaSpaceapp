@@ -30,4 +30,4 @@ build:
 	cd frontend && npm run build
 
 samples:      ## Vuelve a descargar las muestras sin conexión de NASA POWER
-	cd backend && PYTHONPATH=. uv run python scripts/fetch_samples.py
+	cd backend && PYTHONPATH=. uv run python -u scripts/fetch_samples.py

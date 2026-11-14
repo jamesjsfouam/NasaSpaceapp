@@ -22,6 +22,7 @@ class Region(BaseModel):
     biome: str
     lat: float
     lon: float
+    country: str | None = None  # ISO3 del país para los indicadores socioeconómicos
 
 
 class Demo(BaseModel):
@@ -87,16 +88,16 @@ VARIABLES: list[Variable] = [
 VARIABLE_BY_KEY = {v.key: v for v in VARIABLES}
 
 REGIONS: list[Region] = [
-    Region(id="managua", label="Managua, Nicaragua", biome="Ciudad tropical", lat=12.13, lon=-86.25),
+    Region(id="managua", label="Managua, Nicaragua", biome="Ciudad tropical", lat=12.13, lon=-86.25, country="NIC"),
     Region(id="corredor_seco", label="Corredor Seco (Somoto), Nicaragua", biome="Bosque seco tropical",
-           lat=13.48, lon=-86.58),
+           lat=13.48, lon=-86.58, country="NIC"),
     Region(id="bluefields", label="Bluefields, Caribe de Nicaragua", biome="Selva húmeda y costa",
-           lat=12.01, lon=-83.76),
+           lat=12.01, lon=-83.76, country="NIC"),
     Region(id="amazonas", label="Amazonía central (Manaos), Brasil", biome="Selva tropical",
-           lat=-3.10, lon=-60.02),
-    Region(id="sahara", label="Sahara central, Argelia", biome="Desierto", lat=25.0, lon=10.0),
+           lat=-3.10, lon=-60.02, country="BRA"),
+    Region(id="sahara", label="Sahara central, Argelia", biome="Desierto", lat=25.0, lon=10.0, country="DZA"),
     Region(id="artico", label="Svalbard, Ártico", biome="Ártico", lat=78.22, lon=15.65),
-    Region(id="cdmx", label="Ciudad de México", biome="Gran ciudad de altura", lat=19.43, lon=-99.13),
+    Region(id="cdmx", label="Ciudad de México", biome="Gran ciudad de altura", lat=19.43, lon=-99.13, country="MEX"),
 ]
 REGION_BY_ID = {r.id: r for r in REGIONS}
 
@@ -118,3 +119,63 @@ DATA_NOTE = (
     "del clima, sobre todo en lluvia y humedad. Además, cada valor representa una celda de unos "
     "50 × 60 km, no una estación. Sirven para detectar patrones; confírmalos con otra fuente."
 )
+
+
+class Indicator(BaseModel):
+    key: str  # código del Banco Mundial
+    label: str
+    unit: str
+    definition: str
+    suggested_variable: str  # variable de la Tierra con la que tiene sentido compararlo
+    ratio_scale: bool = True
+
+
+INDICATORS: list[Indicator] = [
+    Indicator(key="AG.YLD.CREL.KG", label="Rendimiento de cereales", unit="kg/ha",
+              suggested_variable="GWETROOT",
+              definition="Kilos de cereal (maíz, arroz, trigo, sorgo…) cosechados por hectárea. "
+                         "Baja en años de sequía o de exceso de lluvia."),
+    Indicator(key="AG.PRD.CROP.XD", label="Índice de producción de cultivos", unit="índice",
+              suggested_variable="PRECTOTCORR",
+              definition="Cuánto se produce en cultivos agrícolas comparado con un periodo de referencia (= 100)."),
+    Indicator(key="AG.PRD.FOOD.XD", label="Índice de producción de alimentos", unit="índice",
+              suggested_variable="PRECTOTCORR",
+              definition="Producción de alimentos (cultivos y ganado) comparada con un periodo de referencia (= 100)."),
+    Indicator(key="NV.AGR.TOTL.ZS", label="Agricultura en la economía", unit="% del PIB",
+              suggested_variable="PRECTOTCORR",
+              definition="Parte de toda la producción del país que viene de la agricultura, la pesca y los bosques."),
+    Indicator(key="SL.AGR.EMPL.ZS", label="Empleo en agricultura", unit="% del empleo",
+              suggested_variable="T2M_MAX",
+              definition="Porcentaje de trabajadores que trabajan en el campo. Es una estimación modelada (OIT)."),
+    Indicator(key="SN.ITK.DEFC.ZS", label="Subalimentación", unit="% de la población",
+              suggested_variable="GWETROOT",
+              definition="Porcentaje de personas que no comen lo suficiente de forma habitual."),
+    Indicator(key="SP.RUR.TOTL.ZS", label="Población rural", unit="% de la población",
+              suggested_variable="T2M",
+              definition="Porcentaje de la población que vive fuera de las ciudades."),
+    Indicator(key="NY.GDP.PCAP.KD", label="PIB por persona", unit="US$ constantes",
+              suggested_variable="T2M",
+              definition="Producción económica promedio por habitante, sin el efecto de la inflación."),
+    Indicator(key="EG.ELC.ACCS.ZS", label="Acceso a electricidad", unit="% de la población",
+              suggested_variable="ALLSKY_SFC_SW_DWN",
+              definition="Porcentaje de personas con acceso a electricidad en su vivienda."),
+    Indicator(key="SP.POP.TOTL", label="Población", unit="habitantes",
+              suggested_variable="T2M",
+              definition="Número total de habitantes del país."),
+]
+INDICATOR_BY_KEY = {i.key: i for i in INDICATORS}
+
+COUNTRIES: dict[str, str] = {
+    "NIC": "Nicaragua",
+    "HND": "Honduras",
+    "SLV": "El Salvador",
+    "GTM": "Guatemala",
+    "CRI": "Costa Rica",
+    "PAN": "Panamá",
+    "MEX": "México",
+    "COL": "Colombia",
+    "BRA": "Brasil",
+    "PER": "Perú",
+    "DZA": "Argelia",
+    "NER": "Níger",
+}
