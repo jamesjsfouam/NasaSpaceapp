@@ -219,8 +219,10 @@ backend/   Python 3.11+, FastAPI, httpx, numpy, pandas, scipy, anthropic, revers
 - **Sin clave:** NASA POWER, Planetary Computer, Our World in Data, Banco Mundial y Open-Meteo.
 - **Meteomatics:** solo en el `.env` local; caduca el 2026-11-22. Nunca pegar la contraseña.
 - **Claude:** `ANTHROPIC_API_KEY` en `.env` (opcional).
-- **Commits:** hasta ahora firmados por "Claude". Cada integrante debería configurar su
-  `git config user.name` y `user.email`.
+- **Commits:** desde el 2026-11-14 los commits que hace Claude van **a nombre de James
+  Santiago Fernández Obregón** (petición suya). Los 40 primeros quedaron firmados como
+  "Claude". Cada integrante configura su propio `git config user.name` y `user.email` en su
+  computadora.
 
 ## 10. Cómo ejecutar
 
