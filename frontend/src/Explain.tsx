@@ -1,5 +1,6 @@
 import { Fragment, useState, type ReactNode } from 'react'
 import { apiPost } from './api'
+import type { Lang } from './i18n'
 
 export type ExplainRequest = {
   kind: 'trend' | 'demography' | 'landcover' | 'relate'
@@ -11,10 +12,10 @@ export type ExplainRequest = {
   place?: string
   start?: number
   to_year?: number
+  lang?: Lang
 }
 type Explanation = { text: string; source: 'claude' | 'plantilla'; note: string | null }
 
-/** Convierte **negrita** y párrafos en elementos React (sin insertar HTML). */
 function renderText(text: string): ReactNode {
   return text.split(/\n{2,}/).map((para, i) => (
     <p key={i}>
@@ -27,16 +28,17 @@ function renderText(text: string): ReactNode {
   ))
 }
 
-/** Botón "Explicar": la IA (o la plantilla) explica el resultado con las cifras del motor. */
-export function ExplainPanel({ request }: { request: ExplainRequest }) {
+/** Grounded AI / Template explanation card anchored exclusively to motor outputs. */
+export function ExplainPanel({ request, lang }: { request: ExplainRequest; lang: Lang }) {
   const [data, setData] = useState<Explanation | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function run() {
-    setBusy(true); setError(null)
+    setBusy(true)
+    setError(null)
     try {
-      setData(await apiPost<Explanation>('/api/explain', request))
+      setData(await apiPost<Explanation>('/api/explain', { ...request, lang }))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -44,19 +46,35 @@ export function ExplainPanel({ request }: { request: ExplainRequest }) {
     }
   }
 
+  const copy = lang === 'es'
+    ? {
+        btn: '✨ Explicar en lenguaje sencillo: ¿por qué ocurre y qué significa?',
+        thinking: 'Analizando cifras…',
+        aiTitle: 'Explicación asistida por IA (anclada a cifras reales)',
+        tplTitle: 'Resumen científico automático',
+        close: 'ocultar',
+      }
+    : {
+        btn: '✨ Explain in plain language: why might this happen & what does it mean?',
+        thinking: 'Synthesizing numbers…',
+        aiTitle: 'AI Explanation (anchored strictly to engine numbers)',
+        tplTitle: 'Automated Scientific Summary',
+        close: 'hide',
+      }
+
   return (
     <div className="explain">
       {!data && (
-        <button className="secondary" onClick={run} disabled={busy}>
-          {busy ? 'Pensando…' : '✨ Explicar: ¿por qué y cómo se verá en el futuro?'}
+        <button className="secondary explain-btn" onClick={run} disabled={busy}>
+          {busy ? copy.thinking : copy.btn}
         </button>
       )}
       {error && <p className="error" role="alert">{error}</p>}
       {data && (
         <div className={`explain-box ${data.source}`}>
           <div className="row">
-            <strong>{data.source === 'claude' ? 'Explicación con IA' : 'Explicación automática'}</strong>
-            <button className="link" onClick={() => setData(null)}>cerrar</button>
+            <strong>{data.source === 'claude' ? copy.aiTitle : copy.tplTitle}</strong>
+            <button className="link" onClick={() => setData(null)}>{copy.close}</button>
           </div>
           {renderText(data.text)}
           {data.note && <p className="muted small">{data.note}</p>}

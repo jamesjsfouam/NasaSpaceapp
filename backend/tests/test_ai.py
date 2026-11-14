@@ -47,6 +47,13 @@ def test_explain_without_key_uses_template_with_engine_numbers():
     assert "Escenario" in r["text"] and "no puede decir por qué" in r["text"]
 
 
+def test_explain_supports_english_template_and_prompt():
+    r = client.post("/api/explain", json={"kind": "trend", "variable": "T2M", "lat": 78.22, "lon": 15.65,
+                                          "to_year": 2040, "lang": "en"}).json()
+    assert r["source"] == "plantilla"
+    assert "Scenario:" in r["text"] and "cannot prove why" in r["text"]
+
+
 def test_explain_validates_kind_and_required_params():
     assert client.post("/api/explain", json={"kind": "nope"}).status_code == 422
     assert client.post("/api/explain", json={"kind": "trend", "lat": 1, "lon": 1}).status_code == 422

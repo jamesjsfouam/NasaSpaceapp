@@ -2,40 +2,62 @@ import { useEffect, useMemo, useRef } from 'react'
 import maplibregl, { type GeoJSONSource, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellColor } from './globeColors'
+import { fmtNum, shortVarName, tUnit, type Lang } from './i18n'
 
 export type GlobeVariable = {
-  label: string; unit: string; cells: number; fdr_threshold: number; fdr_significant: number; slope_p98: number
+  label: string
+  unit: string
+  cells: number
+  fdr_threshold: number
+  fdr_significant: number
+  slope_p98: number
 }
-// [pendiente por década, p de Mann-Kendall, veredicto 2/1/0, media, pasa FDR 1/0]
+// [slope per decade, Mann-Kendall p, verdict 2/1/0, mean, passes FDR 1/0]
 type CellValue = [number, number, number, number, number]
 export type GlobeCell = { lat: number; lon: number } & Record<string, CellValue | number>
 export type GlobeData = {
-  generated: string; period: [number, number]; cell_deg: number; fdr_q: number
-  variables: Record<string, GlobeVariable>; cells: GlobeCell[]
+  generated: string
+  period: [number, number]
+  cell_deg: number
+  fdr_q: number
+  variables: Record<string, GlobeVariable>
+  cells: GlobeCell[]
 }
 
-const VERDICT = ['Sin tendencia clara', 'Todavía no significativa', 'Tendencia significativa']
+export type CameraCmd = { kind: 'global' | 'center' | 'zone'; seq: number }
+
+const VERDICT_TIP: Record<Lang, [string, string, string]> = {
+  es: ['Sin tendencia clara', 'Todavía no significativa', 'Tendencia significativa'],
+  en: ['No clear trend', 'Not yet significant', 'Confirmed trend'],
+}
+
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
 
-// El globo lo dibuja MapLibre: teselas reales que se piden según el zoom (NASA GIBS de lejos,
-// Esri World Imagery de cerca) en vez de una textura fija, y la malla como una sola capa en GPU.
+// Unified 3D Globe: NASA GIBS Blue Marble / VIIRS Black Marble from orbit,
+// transitioning smoothly to Esri World Imagery when zooming into cities and zones.
 const STYLE: StyleSpecification = {
   version: 8,
   projection: { type: 'globe' },
   sky: { 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] },
   sources: {
     day: {
-      type: 'raster', tileSize: 256, maxzoom: 8,
+      type: 'raster',
+      tileSize: 256,
+      maxzoom: 8,
       tiles: [`${GIBS}/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg`],
       attribution: 'NASA GIBS · Blue Marble',
     },
     detail: {
-      type: 'raster', tileSize: 256, maxzoom: 18,
+      type: 'raster',
+      tileSize: 256,
+      maxzoom: 18,
       tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
       attribution: 'Esri World Imagery',
     },
     night: {
-      type: 'raster', tileSize: 256, maxzoom: 8,
+      type: 'raster',
+      tileSize: 256,
+      maxzoom: 8,
       tiles: [`${GIBS}/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`],
       attribution: 'NASA GIBS · VIIRS Black Marble',
     },
@@ -43,24 +65,66 @@ const STYLE: StyleSpecification = {
   layers: [
     { id: 'day', type: 'raster', source: 'day' },
     {
-      id: 'detail', type: 'raster', source: 'detail', minzoom: 4,
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 6, 1] },
+      id: 'detail',
+      type: 'raster',
+      source: 'detail',
+      minzoom: 3.5,
+      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 3.5, 0, 5.8, 1] },
     },
     { id: 'night', type: 'raster', source: 'night', layout: { visibility: 'none' } },
   ],
 }
 
+type SpotPin = { lat: number; lon: number; label?: string }
+
 type Props = {
-  data: GlobeData; variable: string; onlySignificant: boolean; night: boolean
-  onPick: (lat: number, lon: number) => void; focus?: { lat: number; lon: number } | null
+  data: GlobeData
+  variable: string
+  onlySignificant: boolean
+  night: boolean
+  lang: Lang
+  onPick: (lat: number, lon: number) => void
+  focus?: SpotPin | null
+  second?: SpotPin | null
+  cameraCmd?: CameraCmd | null
+  spinEnabled?: boolean
 }
 
-export function Globe3D({ data, variable, onlySignificant, night, onPick, focus }: Props) {
+export function Globe3D({
+  data,
+  variable,
+  onlySignificant,
+  night,
+  lang,
+  onPick,
+  focus,
+  second,
+  cameraCmd,
+  spinEnabled = true,
+}: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  // Lo que leen los manejadores del mapa, que se registran una sola vez.
-  const live = useRef({ onPick, focus, meta: data.variables[variable], geojson: null as GeoJSON.FeatureCollection | null })
-  useEffect(() => { Object.assign(live.current, { onPick, focus, meta: data.variables[variable] }) })
+
+  const spotsGeojson = useMemo<GeoJSON.FeatureCollection>(() => {
+    const features: GeoJSON.Feature[] = []
+    if (focus) {
+      features.push({
+        type: 'Feature',
+        id: 'spot-a',
+        properties: { color: '#3fd0e6', role: 'A' },
+        geometry: { type: 'Point', coordinates: [focus.lon, focus.lat] },
+      })
+    }
+    if (second) {
+      features.push({
+        type: 'Feature',
+        id: 'spot-b',
+        properties: { color: '#f59e42', role: 'B' },
+        geometry: { type: 'Point', coordinates: [second.lon, second.lat] },
+      })
+    }
+    return { type: 'FeatureCollection', features }
+  }, [focus, second])
 
   const geojson = useMemo<GeoJSON.FeatureCollection>(() => {
     const half = data.cell_deg / 2
@@ -73,11 +137,15 @@ export function Globe3D({ data, variable, onlySignificant, night, onPick, focus 
         if (!v || (onlySignificant && !v[4])) return []
         const [w, e, s, n] = [c.lon - half, c.lon + half, clampLat(c.lat - half), clampLat(c.lat + half)]
         return [{
-          type: 'Feature' as const, id: i,
+          type: 'Feature' as const,
+          id: i,
           properties: {
-            lat: c.lat, lon: c.lon, slope: v[0], verdict: v[2], fdr: v[4],
-            // Cuanto más fuerte la tendencia, más se tapa el satélite; las débiles apenas tiñen.
-            color: cellColor(variable, v[0], scale, v[4] ? 0.2 + 0.55 * Math.min(1, Math.abs(v[0] / scale)) : 0.06),
+            lat: c.lat,
+            lon: c.lon,
+            slope: v[0],
+            verdict: v[2],
+            fdr: v[4],
+            color: cellColor(variable, v[0], scale, v[4] ? 0.22 + 0.54 * Math.min(1, Math.abs(v[0] / scale)) : 0.06),
           },
           geometry: { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
         }]
@@ -85,39 +153,130 @@ export function Globe3D({ data, variable, onlySignificant, night, onPick, focus 
     }
   }, [data, variable, onlySignificant])
 
+  const live = useRef({
+    onPick,
+    spinEnabled,
+    lang,
+    variable,
+    meta: data.variables[variable],
+    geojson,
+    spotsGeojson,
+  })
+  useEffect(() => {
+    Object.assign(live.current, {
+      onPick,
+      spinEnabled,
+      lang,
+      variable,
+      meta: data.variables[variable],
+      geojson,
+      spotsGeojson,
+    })
+  })
+
   useEffect(() => {
     const map = new maplibregl.Map({
-      container: wrapRef.current!, style: STYLE, center: [-60, 12], zoom: 1.9, maxZoom: 12,
+      container: wrapRef.current!,
+      style: STYLE,
+      center: [focus?.lon ?? -60, focus?.lat ?? 12],
+      zoom: 1.95,
+      maxZoom: 12,
       attributionControl: { compact: true },
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
-    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'globe-popup', offset: 8 })
-    const fmt = (x: number) => x.toLocaleString('es', { maximumSignificantDigits: 3 })
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'globe-popup',
+      offset: 10,
+    })
 
-    // Giro lento mientras nadie toca el globo ni hay un punto enfocado.
     let interacting = false
     const spin = () => {
-      if (interacting || live.current.focus || map.getZoom() > 3) return
+      if (interacting || !live.current.spinEnabled || map.getZoom() > 2.6) return
       const c = map.getCenter()
-      map.easeTo({ center: [c.lng - 4, c.lat], duration: 1000, easing: (t) => t })
+      map.easeTo({ center: [c.lng - 3.2, c.lat], duration: 1000, easing: (t) => t })
     }
-    const stop = () => { interacting = true; map.stop() }
-    const resume = () => { interacting = false; spin() }
-    map.on('mousedown', stop); map.on('touchstart', stop); map.on('wheel', stop)
-    map.on('mouseup', resume); map.on('touchend', resume); map.on('dragend', resume)
+    const stop = () => {
+      interacting = true
+      map.stop()
+    }
+    const resume = () => {
+      interacting = false
+      spin()
+    }
+    map.on('mousedown', stop)
+    map.on('touchstart', stop)
+    map.on('wheel', stop)
+    map.on('mouseup', resume)
+    map.on('touchend', resume)
+    map.on('dragend', resume)
     map.on('moveend', spin)
 
     let hovered: number | string | undefined
     map.on('load', () => {
-      map.addSource('cells', { type: 'geojson', data: live.current.geojson ?? { type: 'FeatureCollection', features: [] } })
-      map.addLayer({ id: 'cells', type: 'fill', source: 'cells', paint: { 'fill-color': ['to-color', ['get', 'color']], 'fill-antialias': false } })
+      map.addSource('cells', { type: 'geojson', data: live.current.geojson })
       map.addLayer({
-        id: 'cells-hover', type: 'line', source: 'cells',
-        paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0] },
+        id: 'cells',
+        type: 'fill',
+        source: 'cells',
+        paint: {
+          'fill-color': ['to-color', ['get', 'color']],
+          'fill-antialias': false,
+          // Smoothly reveal underlying satellite terrain as the user zooms into a region
+          'fill-opacity': ['interpolate', ['linear'], ['zoom'], 2, 1, 4.2, 0.72, 6.2, 0.22, 8.5, 0.08],
+        },
       })
+      map.addLayer({
+        id: 'cells-grid',
+        type: 'line',
+        source: 'cells',
+        paint: {
+          'line-color': 'rgba(255,255,255,0.08)',
+          'line-width': 0.5,
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5.5, 0.7, 9, 0.3],
+        },
+      })
+      map.addLayer({
+        id: 'cells-hover',
+        type: 'line',
+        source: 'cells',
+        paint: {
+          'line-color': '#ffffff',
+          'line-width': 2,
+          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0],
+        },
+      })
+
+      map.addSource('selected-spots', { type: 'geojson', data: live.current.spotsGeojson })
+      map.addLayer({
+        id: 'spot-halo',
+        type: 'circle',
+        source: 'selected-spots',
+        paint: {
+          'circle-radius': 14,
+          'circle-color': ['get', 'color'],
+          'circle-opacity': 0.25,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': ['get', 'color'],
+        },
+      })
+      map.addLayer({
+        id: 'spot-dot',
+        type: 'circle',
+        source: 'selected-spots',
+        paint: {
+          'circle-radius': 5.5,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#040812',
+        },
+      })
+
       spin()
     })
+
     map.on('mousemove', 'cells', (e) => {
       const f = e.features?.[0]
       if (!f) return
@@ -127,29 +286,65 @@ export function Globe3D({ data, variable, onlySignificant, night, onPick, focus 
       map.setFeatureState({ source: 'cells', id: hovered! }, { hover: true })
       const p = f.properties as { lat: number; lon: number; slope: number; verdict: number; fdr: number }
       const meta = live.current.meta
-      popup.setLngLat(e.lngLat).setHTML(`<div class="globe-tip"><b>${meta.label}</b><br/>
-        ${p.lat.toFixed(1)}°, ${p.lon.toFixed(1)}°<br/>
-        <span class="num">${p.slope > 0 ? '+' : ''}${fmt(p.slope)} ${meta.unit}/década</span><br/>
-        ${VERDICT[p.verdict]}${p.fdr ? ' · pasa FDR' : ''}<br/>
-        <i>Clic para investigar este punto</i></div>`).addTo(map)
+      const curLang = live.current.lang
+      const vName = shortVarName(live.current.variable, curLang, meta.label)
+      const unitLabel = tUnit(meta.unit, curLang)
+      const perDec = curLang === 'es' ? '/década' : '/decade'
+      const fdrLabel = p.fdr ? (curLang === 'es' ? ' · pasa FDR' : ' · passes FDR') : ''
+      const tipHint = curLang === 'es'
+        ? 'Clic para marcar esta zona'
+        : 'Click to select this spot'
+      popup
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div class="globe-tip"><b>${vName}</b><br/>` +
+          `${p.lat.toFixed(1)}°, ${p.lon.toFixed(1)}°<br/>` +
+          `<span class="num">${p.slope > 0 ? '+' : ''}${fmtNum(p.slope, curLang)} ${unitLabel}${perDec}</span><br/>` +
+          `${VERDICT_TIP[curLang][p.verdict]}${fdrLabel}<br/>` +
+          `<i>${tipHint}</i></div>`,
+        )
+        .addTo(map)
     })
+
     map.on('mouseleave', 'cells', () => {
-      map.getCanvas().style.cursor = ''
+      map.getCanvas().style.cursor = 'crosshair'
       if (hovered !== undefined) map.setFeatureState({ source: 'cells', id: hovered }, { hover: false })
       hovered = undefined
       popup.remove()
     })
-    map.on('click', 'cells', (e) => {
-      const p = e.features?.[0]?.properties as { lat: number; lon: number } | undefined
-      if (p) live.current.onPick(p.lat, p.lon)
+
+    // Unified click anywhere on the planet (cell centers at orbit zoom, exact coordinates when zoomed in)
+    map.on('click', (e) => {
+      const z = map.getZoom()
+      if (z < 3.6) {
+        const hit = map.queryRenderedFeatures(e.point, { layers: ['cells'] })[0]
+        const props = hit?.properties as { lat?: number; lon?: number } | undefined
+        if (props?.lat !== undefined && props?.lon !== undefined) {
+          live.current.onPick(props.lat, props.lon)
+          return
+        }
+      }
+      const normLon = ((e.lngLat.lng + 540) % 360) - 180
+      live.current.onPick(+e.lngLat.lat.toFixed(4), +normLon.toFixed(4))
     })
-    return () => { popup.remove(); map.remove(); mapRef.current = null }
+
+    return () => {
+      popup.remove()
+      map.remove()
+      mapRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     live.current.geojson = geojson
     ;(mapRef.current?.getSource('cells') as GeoJSONSource | undefined)?.setData(geojson)
   }, [geojson])
+
+  useEffect(() => {
+    live.current.spotsGeojson = spotsGeojson
+    ;(mapRef.current?.getSource('selected-spots') as GeoJSONSource | undefined)?.setData(spotsGeojson)
+  }, [spotsGeojson])
 
   useEffect(() => {
     const map = mapRef.current
@@ -164,8 +359,16 @@ export function Globe3D({ data, variable, onlySignificant, night, onPick, focus 
 
   useEffect(() => {
     const map = mapRef.current
-    if (map && focus) map.flyTo({ center: [focus.lon, focus.lat], zoom: 3, duration: 1500 })
-  }, [focus])
+    if (!map || !cameraCmd) return
+    if (cameraCmd.kind === 'global') {
+      map.flyTo({ center: [focus?.lon ?? -60, focus?.lat ?? 12], zoom: 1.9, duration: 1100 })
+    } else if (cameraCmd.kind === 'zone' && focus) {
+      map.flyTo({ center: [focus.lon, focus.lat], zoom: 6.8, duration: 1300 })
+    } else if (cameraCmd.kind === 'center' && focus) {
+      map.flyTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 4.2), duration: 1000 })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraCmd?.seq])
 
   return <div ref={wrapRef} className="globe-wrap" />
 }

@@ -158,7 +158,50 @@ Reglas estrictas:
 - Formato: texto con los cuatro subtítulos en negrita, sin listas largas ni encabezados #."""
 
 
-def explain_with_template(facts: dict) -> Explanation:
+_EXPLAIN_SYSTEM_EN = """You are a science communicator explaining results from a NASA Space Apps \
+Earth-system tool to high school and university students in clear, accessible English.
+
+You receive a JSON payload with results ALREADY computed by the statistical engine (trends, \
+significance tests, future scenarios, satellite land cover, or UN demography). Write a 150–250 word \
+explanation in four short bold-headed sections:
+
+1. **What the data shows**: the verdict and key numbers exactly as provided.
+2. **Why this could be happening**: 2 or 3 plausible physical or social processes for this place \
+and variable, framed strictly as hypotheses ("could be linked to", "one possible explanation"). \
+Never state causes as proven facts: the tool measures changes, not causes.
+3. **How the future scenario looks**: describe the scenario numbers (value and 95% interval) and \
+what they would mean in everyday life. Emphasize it is a linear scenario if today's pace continues, \
+not a prediction.
+4. **What caveats to keep in mind**: summarize any data warnings (source reliability, \
+autocorrelation, step changes, spatial scale) in 1–2 sentences.
+
+Strict rules:
+- Use ONLY numbers present in the JSON. Never invent figures, dates, studies, or sources.
+- If the verdict is "not_yet" or "no_trend", never speak as if a trend were confirmed.
+- No medical, legal, or investment advice.
+- Format: plain text with the four bold subheadings, no long bullet lists or # headings."""
+
+
+def explain_with_template(facts: dict, lang: str = "es") -> Explanation:
+    if lang == "en":
+        parts = [facts.get("interpretation") or ""]
+        fc = facts.get("forecast_text")
+        if fc:
+            parts.append(f"**Scenario:** {fc}")
+        for w in facts.get("warnings", [])[:4]:
+            parts.append(f"**Caution:** {w}")
+        if facts.get("reliability"):
+            parts.append(f"**Source reliability:** {facts['reliability']}")
+        parts.append(
+            "This tool measures how much a variable changes and whether it is statistically significant; "
+            "it cannot prove why. Cross-check with other variables and independent sensors to explore causes."
+        )
+        return Explanation(
+            text="\n\n".join(p for p in parts if p),
+            source="plantilla",
+            note="Automated summary without LLM (set ANTHROPIC_API_KEY for full AI narration).",
+        )
+
     parts = [facts.get("interpretation") or ""]
     fc = facts.get("forecast_text")
     if fc:
@@ -175,10 +218,11 @@ def explain_with_template(facts: dict) -> Explanation:
                        note="Explicación automática sin IA (configura ANTHROPIC_API_KEY para la narrada).")
 
 
-async def explain(facts: dict) -> Explanation:
+async def explain(facts: dict, lang: str = "es") -> Explanation:
     c = client()
     if c is None:
-        return explain_with_template(facts)
+        return explain_with_template(facts, lang=lang)
+    system = _EXPLAIN_SYSTEM_EN if lang == "en" else _EXPLAIN_SYSTEM
     try:
         response = await c.beta.messages.create(
             model=MODEL,
@@ -186,19 +230,31 @@ async def explain(facts: dict) -> Explanation:
             betas=[FALLBACK_BETA],
             fallbacks="default",
             output_config={"effort": "low"},
-            system=_EXPLAIN_SYSTEM,
+            system=system,
             messages=[{"role": "user", "content": json.dumps(facts, ensure_ascii=False)}],
         )
     except anthropic.APIError:
-        out = explain_with_template(facts)
-        out.note = "El servicio de IA no respondió; se muestra la explicación automática."
+        out = explain_with_template(facts, lang=lang)
+        out.note = (
+            "The AI service did not respond; showing the automated summary."
+            if lang == "en"
+            else "El servicio de IA no respondió; se muestra la explicación automática."
+        )
         return out
     text = _first_text(response).strip()
     if response.stop_reason == "refusal" or not text:
-        out = explain_with_template(facts)
-        out.note = "La IA no generó una explicación; se muestra la automática."
+        out = explain_with_template(facts, lang=lang)
+        out.note = (
+            "The AI did not generate an explanation; showing the automated summary."
+            if lang == "en"
+            else "La IA no generó una explicación; se muestra la automática."
+        )
         return out
-    note = "Generado con IA a partir de las cifras del análisis. Las causas son hipótesis, no hechos."
+    note = (
+        "Generated with AI strictly from the engine numbers. Potential causes are hypotheses, not proven facts."
+        if lang == "en"
+        else "Generado con IA a partir de las cifras del análisis. Las causas son hipótesis, no hechos."
+    )
     if response.stop_reason == "max_tokens":
-        note += " (Texto recortado.)"
+        note += " (Truncated.)" if lang == "en" else " (Texto recortado.)"
     return Explanation(text=text, source="claude", note=note)

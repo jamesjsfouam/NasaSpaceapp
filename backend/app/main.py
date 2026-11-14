@@ -503,6 +503,7 @@ class ExplainRequest(BaseModel):
     place: str = ""
     start: int = 1990
     to_year: int = Field(2050, le=MAX_HORIZON)
+    lang: str = Field("es", pattern="^(es|en)$")
 
 
 def _forecast_facts(fc: forecast.Forecast | None) -> dict:
@@ -590,7 +591,7 @@ async def explain(body: ExplainRequest) -> ai.Explanation:
                   "year_to_year_p": round(rel.detrended_p, 5), "apparent_r": round(rel.raw_r, 3),
                   "trend_driven": rel.trend_driven, "warnings": rel.warnings,
                   "note": "Una correlación no demuestra causa."}
-    return await ai.explain(facts)
+    return await ai.explain(facts, lang=body.lang)
 
 
 # --- Globo 3D: malla global precalculada (scripts/build_globe.py) ----------------------------
