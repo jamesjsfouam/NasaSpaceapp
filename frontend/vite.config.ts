@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 
 // En desarrollo, /api se redirige al backend de FastAPI.
 export default defineConfig({
+  base: './',
   plugins: [react()],
   server: {
     proxy: { '/api': 'http://localhost:8000' },

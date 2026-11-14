@@ -1,5 +1,21 @@
+import { staticGet, staticPost } from './staticFallback'
+
 // En producción, VITE_API_URL apunta al backend desplegado; en desarrollo se usa el proxy de Vite.
 const BASE = import.meta.env.VITE_API_URL ?? ''
+
+function preferStaticOnly(): boolean {
+  return (
+    !BASE &&
+    typeof window !== 'undefined' &&
+    window.location.hostname.endsWith('github.io')
+  )
+}
+
+function shouldFallback(res: Response): boolean {
+  if (BASE) return false
+  const ct = res.headers.get('content-type') ?? ''
+  return res.status === 404 || res.status === 405 || !ct.includes('application/json')
+}
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -10,13 +26,31 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export async function api<T>(path: string, signal?: AbortSignal): Promise<T> {
-  return handle<T>(await fetch(`${BASE}${path}`, { signal }))
+  if (preferStaticOnly()) return staticGet<T>(path, signal)
+  try {
+    const res = await fetch(`${BASE}${path}`, { signal })
+    if (shouldFallback(res)) return staticGet<T>(path, signal)
+    return handle<T>(res)
+  } catch (err) {
+    if (!BASE && !(err instanceof DOMException && err.name === 'AbortError')) {
+      return staticGet<T>(path, signal)
+    }
+    throw err
+  }
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  return handle<T>(await fetch(`${BASE}${path}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  }))
+  if (preferStaticOnly()) return staticPost<T>(path, body)
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    if (shouldFallback(res)) return staticPost<T>(path, body)
+    return handle<T>(res)
+  } catch (err) {
+    if (!BASE) return staticPost<T>(path, body)
+    throw err
+  }
 }
 
 export type Variable = {
