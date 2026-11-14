@@ -38,17 +38,17 @@ export function TrendChart({ trend, forecast }: { trend: Trend; forecast?: Forec
           labelFormatter={(x) => String(Math.floor(Number(x)))} />
         <Legend />
         {forecast && <ReferenceLine x={trend.last_year + 1} stroke="var(--muted)" strokeDasharray="2 4" label={{ value: 'hoy', fontSize: 11, fill: 'var(--muted)' }} />}
-        <Line name="Meses (sin estación)" dataKey="monthly" stroke="#9aa5b8" strokeWidth={1} dot={false}
+        <Line name="Meses (sin estación)" dataKey="monthly" stroke="#3b4a63" strokeWidth={1} dot={false}
           isAnimationActive={false} connectNulls />
-        <Line name="Promedio anual" dataKey="annual" stroke="#1f5fbf" strokeWidth={2} dot={{ r: 3 }}
+        <Line name="Promedio anual" dataKey="annual" stroke="#3fd0e6" strokeWidth={2} dot={{ r: 3 }}
           isAnimationActive={false} connectNulls />
-        <Line name="Tendencia (Theil–Sen)" dataKey="trend" stroke="#c2570a" strokeWidth={2.5} dot={false}
+        <Line name="Tendencia (Theil–Sen)" dataKey="trend" stroke="#f59e42" strokeWidth={2.5} dot={false}
           strokeDasharray="6 4" isAnimationActive={false} connectNulls />
         {forecast && (
           <>
-            <Area name="Escenario: rango del 95 %" dataKey="band" fill="#7b4fc4" fillOpacity={0.15} stroke="none"
+            <Area name="Escenario: rango del 95 %" dataKey="band" fill="#a78bfa" fillOpacity={0.18} stroke="none"
               isAnimationActive={false} connectNulls />
-            <Line name="Escenario si el ritmo sigue" dataKey="scenario" stroke="#7b4fc4" strokeWidth={2.5}
+            <Line name="Escenario si el ritmo sigue" dataKey="scenario" stroke="#a78bfa" strokeWidth={2.5}
               strokeDasharray="2 3" dot={false} isAnimationActive={false} connectNulls />
           </>
         )}

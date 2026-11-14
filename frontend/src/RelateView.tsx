@@ -89,17 +89,17 @@ export function RelateView({ cat, query }: { cat: Catalog; query: RelateQuery })
           <div className="facts">
             <div>
               <span>Año a año (sin tendencias)</span>
-              <strong>r = {fmt(rel.detrended_r, 2)} · {pText(rel.detrended_p)}</strong>
+              <strong className="num">r = {fmt(rel.detrended_r, 2)} · {pText(rel.detrended_p)}</strong>
               <em>Relación {rel.strength}{rel.significant ? ', significativa' : ', no significativa'}</em>
             </div>
             <div>
               <span>Aparente (con tendencias)</span>
-              <strong>r = {fmt(rel.raw_r, 2)} · {pText(rel.raw_p)}</strong>
+              <strong className="num">r = {fmt(rel.raw_r, 2)} · {pText(rel.raw_p)}</strong>
               <em>{rel.trend_driven ? 'Engañosa: la explican las tendencias' : 'Similar a la de año a año'}</em>
             </div>
             <div>
               <span>Años comparados</span>
-              <strong>{rel.n_years}</strong>
+              <strong className="num">{rel.n_years}</strong>
               <em>{rel.first_year}–{rel.last_year}</em>
             </div>
             <div>
@@ -126,8 +126,8 @@ export function RelateView({ cat, query }: { cat: Catalog; query: RelateQuery })
                   <YAxis width={36} />
                   <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
                   <Legend />
-                  <Line name={variable?.label ?? ''} dataKey="earth" stroke="#1f5fbf" strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <Line name={data.indicator.label} dataKey="indicator" stroke="#c2570a" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line name={variable?.label ?? ''} dataKey="earth" stroke="#3fd0e6" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line name={data.indicator.label} dataKey="indicator" stroke="#f59e42" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -144,7 +144,7 @@ export function RelateView({ cat, query }: { cat: Catalog; query: RelateQuery })
                     tickFormatter={(v: number) => fmt(v, 2)} />
                   <Tooltip formatter={(v) => (typeof v === 'number' ? fmt(v) : v)}
                     labelFormatter={() => ''} />
-                  <Scatter data={rel.points} fill="#1f5fbf" isAnimationActive={false} />
+                  <Scatter data={rel.points} fill="#3fd0e6" isAnimationActive={false} />
                 </ScatterChart>
               </ResponsiveContainer>
             </div>

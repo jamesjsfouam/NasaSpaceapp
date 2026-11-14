@@ -5,8 +5,8 @@ import { ExplainPanel } from './Explain'
 import { SeriesChart } from './SeriesChart'
 
 const CLASS_COLORS: Record<string, string> = {
-  'Zona construida': '#c2570a', Cultivos: '#d4a017', 'Árboles': '#0f8a5f', Agua: '#1f5fbf',
-  'Pastizal y matorral': '#8aa04a', 'Suelo desnudo': '#9a7b5f', 'Vegetación inundada': '#4aa0a0', 'Nieve y hielo': '#9aa5b8',
+  'Zona construida': '#f59e42', Cultivos: '#facc15', 'Árboles': '#34d399', Agua: '#3fd0e6',
+  'Pastizal y matorral': '#a3e635', 'Suelo desnudo': '#c8a27a', 'Vegetación inundada': '#5eead4', 'Nieve y hielo': '#9aa5b8',
 }
 
 export function SatelliteView({ lat, lon, label }: { lat: number; lon: number; label: string }) {

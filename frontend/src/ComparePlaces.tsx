@@ -89,8 +89,8 @@ export function ComparePlaces({ variable, start, a, second, onSecond }: {
               <YAxis width={36} />
               <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
               <Legend />
-              <Line name={a.label} dataKey="a" stroke="#1f5fbf" strokeWidth={2} dot={false} isAnimationActive={false} />
-              <Line name={b.label} dataKey="b" stroke="#c2570a" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line name={a.label} dataKey="a" stroke="#3fd0e6" strokeWidth={2} dot={false} isAnimationActive={false} />
+              <Line name={b.label} dataKey="b" stroke="#f59e42" strokeWidth={2} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
           <p className="muted small">Promedios anuales estandarizados (desviaciones respecto al promedio de cada lugar) para comparar la forma de las dos series. Misma variable, dos historias.</p>

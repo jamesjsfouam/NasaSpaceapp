@@ -86,13 +86,15 @@ def _scene_query(year: int) -> tuple[str, dict]:
 
 
 def _render_url(collection: str, item: str, bbox: list[float], size: int) -> str:
-    params: list[tuple[str, str]] = [("collection", collection), ("item", item), ("max_size", str(size))]
+    params: list[tuple[str, str]] = [("collection", collection), ("item", item)]
     if collection == "sentinel-2-l2a":
         params.append(("assets", "visual"))
     else:  # Landsat Colección 2 nivel 2: reflectancia escalada; este rango da color natural
         params += [("assets", "red"), ("assets", "green"), ("assets", "blue"), ("rescale", "7500,14000")]
     w, s, e, n = bbox
-    return f"{DATA}/bbox/{w},{s},{e},{n}.png?{urlencode(params)}"
+    # Tamaño cuadrado explícito: el cuadro es cuadrado en el terreno, y así la imagen no se
+    # deforma lejos del ecuador (en grados, la longitud se ensancha con la latitud).
+    return f"{DATA}/bbox/{w},{s},{e},{n}/{size}x{size}.png?{urlencode(params)}"
 
 
 async def _best_scene(client: httpx.AsyncClient, year: int, lat: float, lon: float,

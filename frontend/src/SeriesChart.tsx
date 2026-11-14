@@ -27,14 +27,14 @@ export function SeriesChart({ history, official, forecast, unit, officialLabel =
         <Tooltip formatter={(v) => (Array.isArray(v) ? `${nf(v[0])} a ${nf(v[1])}` : typeof v === 'number' ? nf(v) : v)} />
         <Legend />
         {lastObserved && forecast && <ReferenceLine x={lastObserved} stroke="var(--muted)" strokeDasharray="2 4" />}
-        <Line name="Datos observados" dataKey="history" stroke="#1f5fbf" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
+        <Line name="Datos observados" dataKey="history" stroke="#3fd0e6" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
         {official && official.length > 0 && (
-          <Line name={officialLabel} dataKey="official" stroke="#0f8a5f" strokeWidth={2.5} dot={false} isAnimationActive={false} connectNulls />
+          <Line name={officialLabel} dataKey="official" stroke="#34d399" strokeWidth={2.5} dot={false} isAnimationActive={false} connectNulls />
         )}
         {forecast && (
           <>
-            <Area name="Escenario lineal: rango 95 %" dataKey="band" fill="#7b4fc4" fillOpacity={0.15} stroke="none" isAnimationActive={false} connectNulls />
-            <Line name="Escenario si el ritmo sigue igual" dataKey="scenario" stroke="#7b4fc4" strokeWidth={2} strokeDasharray="2 3" dot={false} isAnimationActive={false} connectNulls />
+            <Area name="Escenario lineal: rango 95 %" dataKey="band" fill="#a78bfa" fillOpacity={0.18} stroke="none" isAnimationActive={false} connectNulls />
+            <Line name="Escenario si el ritmo sigue igual" dataKey="scenario" stroke="#a78bfa" strokeWidth={2} strokeDasharray="2 3" dot={false} isAnimationActive={false} connectNulls />
           </>
         )}
       </ComposedChart>

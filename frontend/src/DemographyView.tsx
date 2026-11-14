@@ -58,20 +58,20 @@ export function DemographyView({ cat, country, start }: { cat: Catalog; country:
       {data && last && (
         <>
           <div className="facts">
-            <div><span>Último dato</span><strong>{fmt(last.mean, 4)} {data.indicator.unit}</strong><em>{last.year}</em></div>
+            <div><span>Último dato</span><strong className="num">{fmt(last.mean, 4)} {data.indicator.unit}</strong><em>{last.year}</em></div>
             <div>
               <span>Tendencia desde {start}</span>
-              <strong>{data.trend ? `${fmt(data.trend.slope_per_decade)} / década` : '—'}</strong>
+              <strong className="num">{data.trend ? `${fmt(data.trend.slope_per_decade)} / década` : '—'}</strong>
               <em>{data.trend ? VERDICT_LABEL[data.trend.verdict] : 'Datos insuficientes'}</em>
             </div>
             <div>
               <span>Proyección ONU {toYear}</span>
-              <strong>{data.un_value_at_horizon !== null ? `${fmt(data.un_value_at_horizon, 4)}` : 'No disponible'}</strong>
+              <strong className="num">{data.un_value_at_horizon !== null ? `${fmt(data.un_value_at_horizon, 4)}` : 'No disponible'}</strong>
               <em>Modelo demográfico oficial</em>
             </div>
             <div>
               <span>Si el ritmo siguiera igual</span>
-              <strong>{scenario ? fmt(scenario.value, 4) : '—'}</strong>
+              <strong className="num">{scenario ? fmt(scenario.value, 4) : '—'}</strong>
               <em>{scenario ? `rango ${fmt(scenario.low, 3)} a ${fmt(scenario.high, 3)}` : ''}</em>
             </div>
           </div>

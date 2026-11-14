@@ -41,3 +41,8 @@ def test_place_type_from_land_cover():
     assert satellite.suggest_place_type({"Cultivos": 60}, 12) == "farmland"
     assert satellite.suggest_place_type({"Árboles": 80}, -3) == "forest"
     assert satellite.suggest_place_type({"Árboles": 80}, 70) == "cold"
+
+
+def test_render_url_is_square_to_avoid_polar_distortion():
+    url = satellite._render_url("sentinel-2-l2a", "X", satellite.bbox_around(78.2, 15.6, 8), 640)
+    assert "/640x640.png?" in url and "assets=visual" in url

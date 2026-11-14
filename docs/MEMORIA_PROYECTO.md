@@ -118,6 +118,16 @@ backend/   Python 3.11+, FastAPI, httpx, numpy, pandas, scipy, anthropic, revers
   scripts/fetch_samples.py  `make samples` o `... fetch_samples.py worldbank NIC MEX`
 ```
 
+**Diseño visual:** tema oscuro de "control de misión", inspirado en el repo de referencia
+`KIRIXDJ/tierra` (Auto-Farm). El código de estilos es propio, en `frontend/src/index.css`.
+
+- **Base:** fondo espacial con estrellas, paneles con borde fino, acento cian `#3fd0e6`.
+- **Tipografía:** títulos en versalitas espaciadas con la fuente de datos a la derecha;
+  cifras en monoespaciada (clase `num`); logotipo "V E R D I C T".
+- **Mapa:** imagen NASA GIBS Blue Marble.
+- **Colores de los veredictos:** cian = significativa, ámbar = todavía no, gris = sin
+  tendencia. Morado para el escenario y la IA.
+
 ## 5. Motor estadístico (`trends.py`)
 
 1. **Anomalías mensuales** y medias anuales (≥ 10 meses por año). Mínimo de 15 años; si no, el

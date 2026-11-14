@@ -163,13 +163,21 @@ export default function App() {
 
   return (
     <main>
-      <header>
-        <h1>Detective de tendencias del sistema Tierra</h1>
-        <p>
-          Elige cualquier lugar del mundo y una pregunta. La herramienta te dice <strong>qué</strong> cambia,
-          <strong> dónde</strong>, <strong>cuánto</strong> y si es <strong>significativo</strong>, con datos de la NASA,
-          satélite y la ONU. Laboratorio Boreal · NASA Space Apps 2026.
-        </p>
+      <header className="hero">
+        <div>
+          <h1 className="logo">VERDICT</h1>
+          <p className="tagline">Detective de tendencias del sistema Tierra</p>
+          <p className="sub">
+            Elige cualquier lugar del mundo y una pregunta: <strong>qué</strong> cambia, <strong>dónde</strong>,
+            {' '}<strong>cuánto</strong> y si es <strong>significativo</strong>.
+          </p>
+          <p className="meta">NASA Space Apps 2026 · Laboratorio Boreal</p>
+        </div>
+        <div className="hero-stats">
+          <div><span>Variables</span><strong>{cat ? cat.variables.length : '—'}</strong><em>NASA POWER</em></div>
+          <div><span>Registro</span><strong>{cat ? `${cat.last_year - cat.first_year + 1}` : '—'}<small> años</small></strong><em>desde {cat?.first_year ?? '…'}</em></div>
+          <div><span>Países</span><strong>{cat ? Object.keys(cat.countries).length : '—'}</strong><em>ONU · Banco Mundial</em></div>
+        </div>
       </header>
 
       {error && <p className="error" role="alert">{error}</p>}
@@ -178,7 +186,7 @@ export default function App() {
       {cat && (
         <>
           <section>
-            <h2>Empieza con un ejemplo</h2>
+            <h2 className="panel-title">Empieza con un ejemplo <span className="src">casos guiados</span></h2>
             <div className="demos">
               {cat.demos.map((d) => (
                 <button key={d.title} className="demo" onClick={() => openDemo(d)}>
@@ -190,7 +198,7 @@ export default function App() {
           </section>
 
           <section>
-            <h2>1 · Preguntar</h2>
+            <h2 className="panel-title"><span><b className="step">1</b> Preguntar</span> <span className="src">IA o reglas · cualquier lugar</span></h2>
             <div className="ask">
               <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500}
                 placeholder="Escribe tu duda, p. ej.: ¿se está secando el suelo en Estelí?"
@@ -332,12 +340,12 @@ function TrendView({ data, where, scenario, onScenario, start, reliability }: {
         <div><span>¿Dónde?</span><strong>{where}</strong><em>{data.lat.toFixed(2)}, {data.lon.toFixed(2)}</em></div>
         <div>
           <span>¿Cuánto?</span>
-          <strong>{fmt(t.slope_per_decade)} {t.unit} / década</strong>
+          <strong className="num">{fmt(t.slope_per_decade)} {t.unit} / década</strong>
           <em>{sign}{fmt(t.total_change)} {t.unit} en {t.n_years} años{t.percent_change !== null ? ` (${sign}${t.percent_change.toFixed(1)} %)` : ''}</em>
         </div>
         <div>
           <span>¿Significativo?</span>
-          <strong>{t.significant ? 'Sí' : 'Todavía no'} ({pText(t.mk_p)})</strong>
+          <strong className="num">{t.significant ? 'Sí' : 'Todavía no'} ({pText(t.mk_p)})</strong>
           <em>{t.significant ? 'Muy improbable que sea azar' : t.years_needed ? `Harían falta ~${t.years_needed} años de datos` : 'Compatible con que no haya cambio'}</em>
         </div>
       </div>
