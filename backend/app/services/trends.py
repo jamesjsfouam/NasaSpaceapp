@@ -150,6 +150,42 @@ def analyze(
         )
     years = np.array(list(years_data), dtype=float)
     annual = np.array([np.mean(list(m.values())) for m in years_data.values()])
+    monthly_points = None
+    if include_series:
+        clim = {
+            m: float(np.mean([months[m] for months in years_data.values()])) for m in range(1, 13)
+        }
+        monthly_points = [
+            MonthlyPoint(date=f"{y}-{m:02d}", anomaly=float(v - clim[m]))
+            for y, months in years_data.items()
+            for m, v in sorted(months.items())
+        ]
+    return analyze_annual(variable, years, annual, include_series, monthly_points)
+
+
+def annual_means(monthly: dict[str, float], start: int, end: int) -> dict[int, float]:
+    """Media de cada año completo del periodo."""
+    return {
+        y: float(np.mean(list(m.values()))) for y, m in _complete_years(monthly, start, end).items()
+    }
+
+
+def analyze_annual(
+    variable: Variable,
+    years: np.ndarray,
+    annual: np.ndarray,
+    include_series: bool = True,
+    monthly_points: list[MonthlyPoint] | None = None,
+) -> TrendResult:
+    """Tendencia sobre una serie anual (un valor por año). La usan también los indicadores
+    socioeconómicos, que ya vienen como datos anuales."""
+    if len(years) < MIN_YEARS:
+        raise InsufficientData(
+            f"Hacen falta al menos {MIN_YEARS} años con datos y hay {len(years)} "
+            f"para {variable.label.lower()}."
+        )
+    years = np.asarray(years, dtype=float)
+    annual = np.asarray(annual, dtype=float)
 
     # --- estadística sobre medias anuales ---
     ts_slope, ts_icpt, ts_lo, ts_hi = stats.theilslopes(annual, years, 0.95)
@@ -182,7 +218,7 @@ def analyze(
     if step:
         warnings.append(
             f"Parece un salto brusco hacia {step[0]} (Pettitt, {_p_text(step[1])}) más que un "
-            "cambio gradual: puede deberse a cambios en los datos que alimentan el modelo. "
+            "cambio gradual: puede deberse a un cambio en cómo se miden o producen los datos. "
             "Contrasta con otra fuente antes de concluir."
         )
     if len(years) < 20:
@@ -234,16 +270,9 @@ def analyze(
     )
 
     if include_series:
-        clim = {
-            m: float(np.mean([months[m] for months in years_data.values()])) for m in range(1, 13)
-        }
         result.series = Series(
             annual=[AnnualPoint(year=int(y), mean=float(a)) for y, a in zip(years, annual)],
-            monthly=[
-                MonthlyPoint(date=f"{y}-{m:02d}", anomaly=float(v - clim[m]))
-                for y, months in years_data.items()
-                for m, v in sorted(months.items())
-            ],
+            monthly=monthly_points or [],
             trend_line=[
                 AnnualPoint(year=int(y), mean=float(ts_icpt + ts_slope * y))
                 for y in (years[0], years[-1])
