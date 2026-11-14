@@ -7,6 +7,7 @@ import {
 import { ComparePlaces } from './ComparePlaces'
 import { DemographyView } from './DemographyView'
 import { ExplainPanel } from './Explain'
+import { GlobeSection } from './GlobeSection'
 import { MapPicker } from './MapPicker'
 import { RelateView } from './RelateView'
 import { SatelliteView } from './SatelliteView'
@@ -61,6 +62,18 @@ export default function App() {
 
   const current = cat?.variables.find((v) => v.key === variable)
 
+  async function resolveSpot(p: { lat: number; lon: number }, label?: string): Promise<Spot> {
+    try {
+      const loc = await api<Location>(`/api/places/locate?lat=${p.lat}&lon=${p.lon}`)
+      return {
+        ...p, iso3: loc.iso3, country: loc.country,
+        label: label ?? (loc.nearest_place ? `${loc.nearest_place}${loc.country ? `, ${loc.country}` : ''}` : `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)} (mar abierto)`),
+      }
+    } catch {
+      return { ...p, iso3: null, country: null, label: label ?? `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}` }
+    }
+  }
+
   async function pickPoint(p: { lat: number; lon: number }, label?: string) {
     if (pickSecond) {
       setSecond({ ...p, label: label ?? `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}` })
@@ -68,15 +81,15 @@ export default function App() {
       return
     }
     setFound([])
-    try {
-      const loc = await api<Location>(`/api/places/locate?lat=${p.lat}&lon=${p.lon}`)
-      setSpot({
-        ...p, iso3: loc.iso3, country: loc.country,
-        label: label ?? (loc.nearest_place ? `${loc.nearest_place}${loc.country ? `, ${loc.country}` : ''}` : `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)} (mar abierto)`),
-      })
-    } catch {
-      setSpot({ ...p, iso3: null, country: null, label: label ?? `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}` })
-    }
+    setSpot(await resolveSpot(p, label))
+  }
+
+  // Clic en una celda del globo: abre el veredicto completo de ese punto con esa variable.
+  async function openCell(lat: number, lon: number, v: string) {
+    const s = await resolveSpot({ lat, lon })
+    setSpot(s); setVariable(v)
+    await investigate({ variable: v, start, spot: s })
+    document.getElementById('resultados')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function doSearch(text = search) {
@@ -183,6 +196,8 @@ export default function App() {
       {error && <p className="error" role="alert">{error}</p>}
       {!cat && !error && <p className="muted">Cargando…</p>}
 
+      <GlobeSection focus={query ? { lat: query.spot.lat, lon: query.spot.lon } : null} onPick={openCell} />
+
       {cat && (
         <>
           <section>
@@ -286,7 +301,7 @@ export default function App() {
       )}
 
       {query && cat && (
-        <section aria-live="polite">
+        <section aria-live="polite" id="resultados">
           <div className="tabs" role="tablist">
             {TABS.map(([k, label]) => (
               <button key={k} role="tab" aria-selected={tab === k} onClick={() => openTab(k)}>{label}</button>

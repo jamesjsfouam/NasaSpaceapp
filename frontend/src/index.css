@@ -169,3 +169,21 @@ td { font-variant-numeric: tabular-nums; }
 .recharts-legend-item-text { color: var(--ink) !important; font-size: 0.82rem; }
 .recharts-default-tooltip { background: var(--panel) !important; border: 1px solid var(--line-2) !important; border-radius: 8px; color: var(--ink); font-family: var(--mono); font-size: 0.8rem; }
 .recharts-tooltip-label { color: var(--muted) !important; }
+
+/* --- globo 3D --- */
+.globe-section { overflow: hidden; background: radial-gradient(ellipse at 40% 50%, rgba(15, 35, 64, 0.9), var(--panel) 70%); }
+.globe-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+.globe-head .panel-title { margin-bottom: 6px; }
+.globe-stat { margin: 0 0 10px; color: var(--muted); max-width: 640px; line-height: 1.5; }
+.globe-stat strong.num { font-family: var(--mono); color: var(--accent); font-size: 1.15rem; }
+.globe-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: center; }
+.globe-wrap { width: 100%; cursor: grab; }
+.globe-legend { background: rgba(5, 10, 20, 0.75); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.legend-title { font-weight: 600; font-size: 0.85rem; }
+.legend-bar { height: 10px; border-radius: 6px; }
+.legend-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+.globe-tip { background: rgba(5, 10, 20, 0.92); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; font: 12px/1.45 system-ui, sans-serif; color: var(--ink); }
+.globe-tip .num { font-family: var(--mono); color: var(--accent); }
+.globe-tip i { color: var(--muted); }
+code { font-family: var(--mono); color: var(--accent); }
+@media (max-width: 900px) { .globe-layout { grid-template-columns: 1fr; } }
