@@ -1,21 +1,32 @@
-"""Análisis de tendencias lineales sobre series mensuales.
+"""Motor de tendencias lineales con un veredicto honesto.
 
-Método (pensado para ser explicable a estudiantes):
-1. Se descartan los años incompletos y se calcula el ciclo estacional (promedio de cada mes).
-2. Se promedian los 12 meses de cada año: así desaparece la estación y queda una serie
-   anual con un valor por año.
-3. Sobre esa serie anual se estima la tasa de cambio con Theil–Sen (robusta a valores
-   extremos) y con regresión lineal (OLS), ambas con intervalo de confianza del 95 %.
-4. Se prueba si la tendencia es distinta de cero con Mann-Kendall (sin supuesto de
-   normalidad; es la prueba principal) y con el t-test de la pendiente de OLS.
+Método (ver docs/RETO.md, pensado para explicarse a estudiantes):
 
-5. Se busca un posible salto brusco (prueba de Pettitt). Si un escalón explica los datos
-   mejor que una recta, se avisa: suele indicar un cambio en las observaciones que alimentan
-   el modelo, no un cambio gradual del clima.
+1. **Anomalías:** a cada mes se le resta la media de ese mes del calendario (quita la estación).
+2. **Medias anuales** de las anomalías, exigiendo al menos 10 meses válidos por año. La prueba
+   principal se hace sobre esta serie anual, que tiene mucha menos autocorrelación que la mensual.
+3. **Magnitud:** pendiente de Theil–Sen (resiste valores extremos) con su IC del 95 %, y la de
+   mínimos cuadrados.
+4. **Significancia,** resistente a la autocorrelación (los datos ambientales "tienen memoria"):
+   - Mann-Kendall con **preblanqueo** (se quita la autocorrelación de lag 1 antes de la prueba).
+   - Regresión con **tamaño de muestra efectivo** n·(1−r)/(1+r) para el intervalo del 95 %.
+   En los dos, r se corrige por el sesgo de muestra pequeña: con pocos años, la autocorrelación
+   estimada sale demasiado baja. Validado por simulación: con 30 años y sin tendencia, los falsos
+   positivos quedan en 3,6 % (φ = 0), 4,8 % (φ = 0,4) y 8,2 % (φ = 0,8), frente al 19 % y 49 %
+   de la regresión corriente.
+5. **Veredicto** (umbrales publicados en docs/RETO.md):
+   - "significant": Mann-Kendall p < 0,05 **y** el IC del 95 % (n efectivo) no incluye el cero.
+   - "not_yet": p entre 0,05 y 0,20, o las dos pruebas no coinciden.
+   - "no_trend": p ≥ 0,20.
+   - Datos insuficientes: menos de 15 años (se lanza InsufficientData).
+6. **Años que faltan** (Weatherhead et al. 1998, adaptado a datos anuales):
+   n* ≈ [3,3 · σ · √12 / |ω| · √((1+φ)/(1−φ))]^(2/3). Validado por simulación: a n* años se
+   detecta la tendencia en ~90 % de los casos.
+7. **Sensibilidad al periodo:** se repite el veredicto moviendo el año inicial y el final hasta
+   3 años. Si cambia, se avisa.
+8. **Salto brusco** (Pettitt): si un escalón explica los datos mejor que una recta, se avisa.
 
-Limitaciones: solo tendencias lineales; la autocorrelación entre años puede hacer que la
-significancia parezca mayor de lo que es (se avisa si se detecta); y al probar muchas
-variables a la vez algunas saldrán "significativas" por azar (se da el p ajustado de Bonferroni).
+Al escanear muchas variables se da también el p ajustado de Bonferroni.
 """
 from __future__ import annotations
 
@@ -28,8 +39,11 @@ from scipy import stats
 
 from app.catalog import VARIABLE_BY_KEY, Variable
 
-MIN_YEARS = 10
+MIN_YEARS = 15
+MIN_MONTHS_PER_YEAR = 10
 ALPHA = 0.05
+NOT_YET_P = 0.20
+PERIOD_SHIFT = 3
 
 
 class InsufficientData(ValueError):
@@ -60,37 +74,36 @@ class TrendResult(BaseModel):
     last_year: int
     n_years: int
     direction: str  # up | down | flat
-    slope_per_decade: float
+    verdict: str  # significant | not_yet | no_trend
+    significant: bool
+    slope_per_decade: float  # Theil–Sen
     ci_low_per_decade: float
     ci_high_per_decade: float
     total_change: float
     percent_change: float | None
     ols_slope_per_decade: float
-    ols_ci_low_per_decade: float
+    ols_ci_low_per_decade: float  # con tamaño de muestra efectivo
     ols_ci_high_per_decade: float
-    ols_p: float
+    ols_p: float  # con tamaño de muestra efectivo
+    n_effective: float
+    autocorrelation: float  # lag 1 de los residuos, corregida por sesgo
     mk_tau: float
-    mk_p: float
+    mk_p: float  # Mann-Kendall con preblanqueo
+    methods_agree: bool
+    years_needed: int | None  # años totales para detectar este ritmo (~90 %), si no es significativa
+    period_sensitive: bool
     p_adjusted: float | None = None  # Bonferroni, solo al escanear varias variables
     step_year: int | None = None  # año de un posible salto brusco, si lo hay
-    significance: str  # very | yes | weak | no
-    significant: bool
-    methods_agree: bool
     warnings: list[str]
     interpretation: str
     series: Series | None = None
 
 
-SIGNIFICANCE_LABEL = {
-    "very": "muy significativa",
-    "yes": "significativa",
-    "weak": "indicio débil",
-    "no": "no significativa",
+VERDICT_LABEL = {
+    "significant": "tendencia significativa",
+    "not_yet": "tendencia todavía no significativa",
+    "no_trend": "sin tendencia clara",
 }
-
-
-def _level(p: float) -> str:
-    return "very" if p < 0.01 else "yes" if p < ALPHA else "weak" if p < 0.10 else "no"
 
 
 def _fmt(x: float) -> str:
@@ -107,6 +120,67 @@ def _signed(x: float) -> str:
 
 def _p_text(p: float) -> str:
     return "p < 0,0001" if p < 1e-4 else f"p = {p:.4f}".replace(".", ",")
+
+
+# --- piezas estadísticas -------------------------------------------------------------------
+
+
+def lag1(resid: np.ndarray) -> float:
+    """Autocorrelación de lag 1 corregida por el sesgo de muestra pequeña, en [0, 0,95]."""
+    n = len(resid)
+    if n < 4 or np.std(resid[:-1]) == 0 or np.std(resid[1:]) == 0:
+        return 0.0
+    r = float(np.corrcoef(resid[:-1], resid[1:])[0, 1])
+    return float(min(0.95, max(0.0, r + (1 + 4 * r) / n)))
+
+
+def mk_prewhitened(years: np.ndarray, y: np.ndarray) -> tuple[float, float]:
+    """Mann-Kendall con preblanqueo: devuelve (τ de la serie original, p preblanqueado)."""
+    tau, p_raw = stats.kendalltau(years, y)
+    slope = stats.theilslopes(y, years)[0]
+    r = lag1(y - slope * years)
+    if r <= 0:
+        return float(tau), float(p_raw)
+    _, p = stats.kendalltau(years[1:], y[1:] - r * y[:-1])
+    return float(tau), float(p)
+
+
+def ols_effective(years: np.ndarray, y: np.ndarray) -> tuple[float, float, float, float, float, float]:
+    """Regresión con tamaño de muestra efectivo: (pendiente, IC bajo, IC alto, p, n_ef, r)."""
+    n = len(y)
+    fit = stats.linregress(years, y)
+    r = lag1(y - (fit.intercept + fit.slope * years))
+    n_eff = max(3.0, n * (1 - r) / (1 + r))
+    df = max(1.0, n_eff - 2)
+    se = fit.stderr * math.sqrt((n - 2) / df)
+    t = stats.t.ppf(0.975, df)
+    p = float(2 * stats.t.sf(abs(fit.slope / se), df)) if se > 0 else 1.0
+    return float(fit.slope), float(fit.slope - t * se), float(fit.slope + t * se), p, float(n_eff), r
+
+
+def years_needed(sigma: float, slope_per_year: float, phi: float) -> int | None:
+    """Años de datos anuales para detectar este ritmo con ~90 % de probabilidad (Weatherhead)."""
+    if slope_per_year == 0 or sigma <= 0:
+        return None
+    phi = min(phi, 0.95)
+    n = (3.3 * sigma * math.sqrt(12) / abs(slope_per_year) * math.sqrt((1 + phi) / (1 - phi))) ** (2 / 3)
+    return math.ceil(n)
+
+
+def _verdict(mk_p: float, ci_low: float, ci_high: float, p_eff: float) -> tuple[str, bool]:
+    ci_excludes_zero = ci_low > 0 or ci_high < 0
+    agree = (mk_p < ALPHA) == (p_eff < ALPHA)
+    if mk_p < ALPHA and ci_excludes_zero:
+        return "significant", agree
+    if mk_p < NOT_YET_P or not agree:
+        return "not_yet", agree
+    return "no_trend", agree
+
+
+def _quick_verdict(years: np.ndarray, y: np.ndarray) -> str:
+    _, mk_p = mk_prewhitened(years, y)
+    _, lo, hi, p_eff, _, _ = ols_effective(years, y)
+    return _verdict(mk_p, lo, hi, p_eff)[0]
 
 
 def _step_change(years: np.ndarray, y: np.ndarray, line_resid: np.ndarray) -> tuple[int, float] | None:
@@ -126,13 +200,51 @@ def _step_change(years: np.ndarray, y: np.ndarray, line_resid: np.ndarray) -> tu
     return None
 
 
-def _complete_years(monthly: dict[str, float], start: int, end: int) -> dict[int, dict[int, float]]:
+# --- de mensual a anual ----------------------------------------------------------------------
+
+
+def _monthly_table(monthly: dict[str, float], start: int, end: int) -> dict[int, dict[int, float]]:
     by_year: dict[int, dict[int, float]] = defaultdict(dict)
     for key, value in monthly.items():
         year, month = int(key[:4]), int(key[4:6])
         if start <= year <= end and 1 <= month <= 12:
             by_year[year][month] = value
-    return {y: m for y, m in sorted(by_year.items()) if len(m) == 12}
+    return dict(sorted(by_year.items()))
+
+
+def _annual_from_monthly(
+    monthly: dict[str, float], start: int, end: int
+) -> tuple[dict[int, float], list[MonthlyPoint]]:
+    """Medias anuales (en unidades de la variable) a partir de anomalías mensuales.
+
+    Un año cuenta si tiene al menos 10 meses válidos; como se promedian anomalías, que falte
+    un mes de verano no sesga el promedio del año.
+    """
+    table = _monthly_table(monthly, start, end)
+    clim = {}
+    for m in range(1, 13):
+        vals = [months[m] for months in table.values() if m in months]
+        if vals:
+            clim[m] = float(np.mean(vals))
+    if not clim:
+        return {}, []
+    base = float(np.mean(list(clim.values())))
+    annual, points = {}, []
+    for y, months in table.items():
+        anoms = {m: v - clim[m] for m, v in months.items() if m in clim}
+        for m, a in sorted(anoms.items()):
+            points.append(MonthlyPoint(date=f"{y}-{m:02d}", anomaly=float(a)))
+        if len(anoms) >= MIN_MONTHS_PER_YEAR:
+            annual[y] = base + float(np.mean(list(anoms.values())))
+    return annual, points
+
+
+def annual_means(monthly: dict[str, float], start: int, end: int) -> dict[int, float]:
+    """Media de cada año con al menos 10 meses válidos."""
+    return _annual_from_monthly(monthly, start, end)[0]
+
+
+# --- análisis ---------------------------------------------------------------------------------
 
 
 def analyze(
@@ -142,57 +254,44 @@ def analyze(
     end: int,
     include_series: bool = True,
 ) -> TrendResult:
-    years_data = _complete_years(monthly, start, end)
-    if len(years_data) < MIN_YEARS:
+    annual, points = _annual_from_monthly(monthly, start, end)
+    if len(annual) < MIN_YEARS:
         raise InsufficientData(
-            f"Hacen falta al menos {MIN_YEARS} años completos y hay {len(years_data)} "
-            f"para {variable.label.lower()} entre {start} y {end}."
+            f"Datos insuficientes: hacen falta al menos {MIN_YEARS} años con datos y hay "
+            f"{len(annual)} para {variable.label.lower()} entre {start} y {end}. "
+            "Prueba un periodo más largo u otra variable."
         )
-    years = np.array(list(years_data), dtype=float)
-    annual = np.array([np.mean(list(m.values())) for m in years_data.values()])
-    monthly_points = None
-    if include_series:
-        clim = {
-            m: float(np.mean([months[m] for months in years_data.values()])) for m in range(1, 13)
-        }
-        monthly_points = [
-            MonthlyPoint(date=f"{y}-{m:02d}", anomaly=float(v - clim[m]))
-            for y, months in years_data.items()
-            for m, v in sorted(months.items())
-        ]
-    return analyze_annual(variable, years, annual, include_series, monthly_points)
-
-
-def annual_means(monthly: dict[str, float], start: int, end: int) -> dict[int, float]:
-    """Media de cada año completo del periodo."""
-    return {
-        y: float(np.mean(list(m.values()))) for y, m in _complete_years(monthly, start, end).items()
-    }
+    return analyze_annual(
+        variable, list(annual), list(annual.values()), include_series, points if include_series else None
+    )
 
 
 def analyze_annual(
     variable: Variable,
-    years: np.ndarray,
-    annual: np.ndarray,
+    years: list[int] | np.ndarray,
+    annual: list[float] | np.ndarray,
     include_series: bool = True,
     monthly_points: list[MonthlyPoint] | None = None,
 ) -> TrendResult:
     """Tendencia sobre una serie anual (un valor por año). La usan también los indicadores
-    socioeconómicos, que ya vienen como datos anuales."""
-    if len(years) < MIN_YEARS:
-        raise InsufficientData(
-            f"Hacen falta al menos {MIN_YEARS} años con datos y hay {len(years)} "
-            f"para {variable.label.lower()}."
-        )
+    socioeconómicos y demográficos, que ya vienen como datos anuales."""
     years = np.asarray(years, dtype=float)
     annual = np.asarray(annual, dtype=float)
+    if len(years) < MIN_YEARS:
+        raise InsufficientData(
+            f"Datos insuficientes: hacen falta al menos {MIN_YEARS} años con datos y hay "
+            f"{len(years)} para {variable.label.lower()}."
+        )
+    n = len(years)
 
-    # --- estadística sobre medias anuales ---
+    # magnitud
     ts_slope, ts_icpt, ts_lo, ts_hi = stats.theilslopes(annual, years, 0.95)
-    ols = stats.linregress(years, annual)
-    tcrit = stats.t.ppf(0.975, len(years) - 2)
-    tau, mk_p = stats.kendalltau(years, annual)
-    mk_p = float(mk_p)
+    # significancia resistente a la autocorrelación
+    tau, mk_p = mk_prewhitened(years, annual)
+    ols_slope, ols_lo, ols_hi, p_eff, n_eff, r = ols_effective(years, annual)
+    verdict, agree = _verdict(mk_p, ols_lo, ols_hi, p_eff)
+    significant = verdict == "significant"
+    direction = "flat" if ts_slope == 0 else ("up" if ts_slope > 0 else "down")
 
     span = float(years[-1] - years[0])
     total = ts_slope * span
@@ -201,46 +300,69 @@ def analyze_annual(
         base = float(np.mean(annual[:5]))
         percent = float(total / abs(base) * 100) if abs(base) > 1e-9 else None
 
-    level = _level(mk_p)
-    significant = mk_p < ALPHA
-    direction = "flat" if ts_slope == 0 else ("up" if ts_slope > 0 else "down")
+    resid = annual - (ts_icpt + ts_slope * years)
+    sigma = float(np.std(resid, ddof=2)) if n > 2 else 0.0
+    needed = None if significant else years_needed(sigma, float(ts_slope), r)
+
+    # sensibilidad al periodo: mover inicio y fin hasta 3 años
+    verdicts = set()
+    for ds in range(PERIOD_SHIFT + 1):
+        for de in range(PERIOD_SHIFT + 1):
+            sub = slice(ds, n - de)
+            if (n - de) - ds >= MIN_YEARS:
+                verdicts.add(_quick_verdict(years[sub], annual[sub]))
+    period_sensitive = len(verdicts) > 1
 
     warnings = []
-    resid = annual - (ts_icpt + ts_slope * years)
-    if np.std(resid[:-1]) > 0 and np.std(resid[1:]) > 0:
-        r1 = float(np.corrcoef(resid[:-1], resid[1:])[0, 1])
-        if r1 > 0.3:
-            warnings.append(
-                f"Los años consecutivos se parecen entre sí (autocorrelación {_fmt(r1)}): "
-                "la significancia puede estar sobreestimada."
-            )
-    step = _step_change(years, annual, annual - (ols.intercept + ols.slope * years))
+    if r > 0.5:
+        warnings.append(
+            f"Autocorrelación alta entre años ({_fmt(r)}): incluso con la corrección, el riesgo de "
+            "ver una tendencia que no existe es mayor de lo normal."
+        )
+    if not agree:
+        warnings.append(
+            "Las dos pruebas (Mann-Kendall y regresión) no coinciden: por eso el veredicto es prudente."
+        )
+    if period_sensitive:
+        warnings.append(
+            "El veredicto cambia si se mueve el año inicial o final hasta 3 años: depende del periodo elegido."
+        )
+    step = _step_change(years, annual, annual - (ts_icpt + ts_slope * years))
     if step:
         warnings.append(
             f"Parece un salto brusco hacia {step[0]} (Pettitt, {_p_text(step[1])}) más que un "
             "cambio gradual: puede deberse a un cambio en cómo se miden o producen los datos. "
             "Contrasta con otra fuente antes de concluir."
         )
-    if len(years) < 20:
-        warnings.append("Serie corta: una tendencia que hoy no es significativa puede serlo con más años.")
 
     unit = variable.unit
-    verb = "aumenta" if ts_slope > 0 else "disminuye"
-    if significant:
+    rate = f"{_signed(ts_slope * 10)} {unit} por década (IC 95 %: {_fmt(ts_lo * 10)} a {_fmt(ts_hi * 10)})"
+    period = f"{int(years[0])}–{int(years[-1])}"
+    if verdict == "significant":
+        verb = "sube" if ts_slope > 0 else "baja"
         text = (
-            f"{variable.label} {verb} {_fmt(abs(ts_slope * 10))} {unit} por década "
-            f"(IC 95 %: {_fmt(ts_lo * 10)} a {_fmt(ts_hi * 10)}). Entre {int(years[0])} y "
-            f"{int(years[-1])} el cambio total estimado es {_signed(total)} {unit}"
+            f"{variable.label} {verb} {rate} en {period}. Cambio total estimado: {_signed(total)} {unit}"
             + (f" ({_signed(percent)} %)" if percent is not None else "")
-            + f". Tendencia {SIGNIFICANCE_LABEL[level]} (Mann-Kendall, {_p_text(mk_p)})."
+            + f". Es muy improbable que sea azar (Mann-Kendall, {_p_text(mk_p)})."
         )
+    elif verdict == "not_yet":
+        text = (
+            f"Tendencia todavía no significativa: {variable.label.lower()} "
+            f"{'sube' if ts_slope > 0 else 'baja'} {rate} en {period}, pero con la variación "
+            f"natural aún no se puede afirmar (Mann-Kendall, {_p_text(mk_p)})."
+        )
+        if needed:
+            text += (
+                f" Con este ritmo y este ruido harían falta unos {needed} años de datos"
+                + (f" (hay {n})." if needed > n else f"; hay {n}, pero las pruebas no coinciden.")
+            )
     else:
         text = (
-            f"No se detecta una tendencia significativa en {variable.label.lower()}. La pendiente "
-            f"estimada es {_fmt(ts_slope * 10)} {unit} por década (IC 95 %: {_fmt(ts_lo * 10)} a "
-            f"{_fmt(ts_hi * 10)}), un cambio que con la variación natural de {int(years[0])} a "
-            f"{int(years[-1])} no se distingue de cero (Mann-Kendall, {_p_text(mk_p)})."
+            f"Sin tendencia clara: los datos de {period} son compatibles con que {variable.label.lower()} "
+            f"no haya cambiado (pendiente {rate}; Mann-Kendall, {_p_text(mk_p)})."
         )
+        if needed:
+            text += f" Si existiera un cambio de ese tamaño, harían falta unos {needed} años para verlo."
 
     result = TrendResult(
         variable=variable.key,
@@ -248,27 +370,30 @@ def analyze_annual(
         unit=unit,
         first_year=int(years[0]),
         last_year=int(years[-1]),
-        n_years=len(years),
+        n_years=n,
         direction=direction,
+        verdict=verdict,
+        significant=significant,
         slope_per_decade=float(ts_slope * 10),
         ci_low_per_decade=float(ts_lo * 10),
         ci_high_per_decade=float(ts_hi * 10),
         total_change=float(total),
         percent_change=percent,
-        ols_slope_per_decade=float(ols.slope * 10),
-        ols_ci_low_per_decade=float((ols.slope - tcrit * ols.stderr) * 10),
-        ols_ci_high_per_decade=float((ols.slope + tcrit * ols.stderr) * 10),
-        ols_p=float(ols.pvalue),
-        mk_tau=float(tau),
+        ols_slope_per_decade=ols_slope * 10,
+        ols_ci_low_per_decade=ols_lo * 10,
+        ols_ci_high_per_decade=ols_hi * 10,
+        ols_p=p_eff,
+        n_effective=n_eff,
+        autocorrelation=r,
+        mk_tau=tau,
         mk_p=mk_p,
-        significance=level,
-        significant=significant,
-        methods_agree=(float(ols.pvalue) < ALPHA) == significant,
-        warnings=warnings,
+        methods_agree=agree,
+        years_needed=needed,
+        period_sensitive=period_sensitive,
         step_year=step[0] if step else None,
+        warnings=warnings,
         interpretation=text,
     )
-
     if include_series:
         result.series = Series(
             annual=[AnnualPoint(year=int(y), mean=float(a)) for y, a in zip(years, annual)],

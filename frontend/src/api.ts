@@ -38,7 +38,7 @@ export type Catalog = {
   countries: Record<string, string>
 }
 
-export type Significance = 'very' | 'yes' | 'weak' | 'no'
+export type Verdict = 'significant' | 'not_yet' | 'no_trend'
 
 export type Trend = {
   variable: string
@@ -61,8 +61,12 @@ export type Trend = {
   mk_p: number
   p_adjusted: number | null
   step_year: number | null
-  significance: Significance
+  verdict: Verdict
   significant: boolean
+  years_needed: number | null
+  period_sensitive: boolean
+  n_effective: number
+  autocorrelation: number
   methods_agree: boolean
   warnings: string[]
   interpretation: string
@@ -77,11 +81,10 @@ export type TrendResponse = { source: string; lat: number; lon: number; result: 
 export type ScanResponse = { source: string; lat: number; lon: number; results: Trend[] }
 export type RegionTrend = { region: Region; source: string; result: Trend | null; error: string | null }
 
-export const SIGNIFICANCE_LABEL: Record<Significance, string> = {
-  very: 'Muy significativa',
-  yes: 'Significativa',
-  weak: 'Indicio débil',
-  no: 'No significativa',
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  significant: 'Tendencia significativa',
+  not_yet: 'Todavía no significativa',
+  no_trend: 'Sin tendencia clara',
 }
 
 export const DIRECTION_ARROW = { up: '↑', down: '↓', flat: '→' } as const

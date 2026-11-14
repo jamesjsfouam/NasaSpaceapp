@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  api, DIRECTION_ARROW, fmt, fmtP, pText, SIGNIFICANCE_LABEL,
+  api, DIRECTION_ARROW, fmt, fmtP, pText, VERDICT_LABEL,
   type Catalog, type RegionTrend, type ScanResponse, type Trend, type TrendResponse,
 } from './api'
 import { RelateView } from './RelateView'
@@ -234,10 +234,10 @@ function TrendView({ data, where }: { data: TrendResponse; where: string }) {
   const sign = t.total_change > 0 ? '+' : ''
   return (
     <div>
-      <div className={`verdict ${t.significance}`}>
+      <div className={`verdict ${t.verdict}`}>
         <div className="row">
           <h2>{t.label} · {where}</h2>
-          <span className={`badge ${t.significance}`}>{SIGNIFICANCE_LABEL[t.significance]}</span>
+          <span className={`badge ${t.verdict}`}>{VERDICT_LABEL[t.verdict]}</span>
         </div>
         <p className="lead">{t.interpretation}</p>
       </div>
@@ -253,7 +253,7 @@ function TrendView({ data, where }: { data: TrendResponse; where: string }) {
         <div>
           <span>¿Significativo?</span>
           <strong>{t.significant ? 'Sí' : 'No'} ({pText(t.mk_p)})</strong>
-          <em>{t.significant ? 'Poco probable que sea casualidad' : 'Podría ser variación natural'}</em>
+          <em>{t.significant ? 'Muy improbable que sea azar' : t.years_needed ? `Harían falta ~${t.years_needed} años de datos` : 'Compatible con que no haya cambio'}</em>
         </div>
       </div>
 
@@ -266,18 +266,19 @@ function TrendView({ data, where }: { data: TrendResponse; where: string }) {
       <details>
         <summary>¿Cómo se calculó?</summary>
         <ol className="how">
-          <li>Se usan solo años completos ({t.first_year}–{t.last_year}) y se quita el ciclo de las estaciones.</li>
-          <li>Se promedia cada año, y sobre esos promedios se traza la recta de tendencia.</li>
-          <li><strong>Theil–Sen</strong> estima la pendiente sin dejarse engañar por años extremos. El intervalo de confianza del 95 % indica el rango razonable de esa pendiente.</li>
-          <li><strong>Mann-Kendall</strong> responde: ¿sería normal ver un orden así por pura casualidad? Un p menor a 0,05 dice que es poco probable.</li>
-          <li>Como contraste, la <strong>regresión lineal con t-test</strong> hace lo mismo con otro método.</li>
+          <li>A cada mes se le resta el promedio de ese mes: así se quita el ciclo de las estaciones.</li>
+          <li>Se promedia cada año ({t.first_year}–{t.last_year}, años con al menos 10 meses) y sobre esos promedios se traza la recta.</li>
+          <li><strong>Theil–Sen</strong> estima la pendiente sin dejarse engañar por años extremos; su intervalo del 95 % es el rango razonable.</li>
+          <li>Los datos del clima tienen memoria: un año cálido suele seguir a otro. Eso engaña a las pruebas normales, así que se usan dos que lo corrigen:
+            <strong> Mann-Kendall con preblanqueo</strong> y <strong>regresión con tamaño de muestra efectivo</strong> (aquí {t.n_years} años valen como {fmt(t.n_effective, 2)} independientes).</li>
+          <li>Veredicto: <em>significativa</em> si p &lt; 0,05 y el intervalo no incluye el cero; <em>todavía no</em> si p está entre 0,05 y 0,20 o las pruebas no coinciden; <em>sin tendencia clara</em> si p ≥ 0,20.</li>
         </ol>
         <table>
           <thead><tr><th>Método</th><th>Pendiente / década</th><th>IC 95 %</th><th>p</th></tr></thead>
           <tbody>
-            <tr><td>Theil–Sen + Mann-Kendall</td><td>{fmt(t.slope_per_decade)}</td>
+            <tr><td>Theil–Sen + Mann-Kendall (preblanqueo)</td><td>{fmt(t.slope_per_decade)}</td>
               <td>{fmt(t.ci_low_per_decade)} a {fmt(t.ci_high_per_decade)}</td><td>{fmtP(t.mk_p)} (τ = {fmt(t.mk_tau, 2)})</td></tr>
-            <tr><td>Regresión lineal + t-test</td><td>{fmt(t.ols_slope_per_decade)}</td>
+            <tr><td>Regresión (n efectivo) + t-test</td><td>{fmt(t.ols_slope_per_decade)}</td>
               <td>{fmt(t.ols_ci_low_per_decade)} a {fmt(t.ols_ci_high_per_decade)}</td><td>{fmtP(t.ols_p)}</td></tr>
           </tbody>
         </table>
@@ -299,7 +300,7 @@ function Rows({ items, onOpen }: { items: Trend[]; onOpen?: (key: string) => voi
           <td>{DIRECTION_ARROW[r.direction]}</td>
           <td>{fmt(r.slope_per_decade)} {r.unit}</td>
           <td>{fmtP(r.mk_p)}{r.p_adjusted !== null ? ` · ${fmtP(r.p_adjusted)}` : ''}</td>
-          <td><span className={`badge ${r.significance}`}>{SIGNIFICANCE_LABEL[r.significance]}</span>
+          <td><span className={`badge ${r.verdict}`}>{VERDICT_LABEL[r.verdict]}</span>
             {r.step_year && <span className="badge weak" title="Posible salto brusco en los datos"> salto {r.step_year}</span>}</td>
         </tr>
       ))}
@@ -345,7 +346,7 @@ function CompareView({ rows, variable }: { rows: RegionTrend[]; variable: string
                 <td>{DIRECTION_ARROW[r.result.direction]}</td>
                 <td>{fmt(r.result.slope_per_decade)} {r.result.unit}</td>
                 <td>{fmtP(r.result.mk_p)}</td>
-                <td><span className={`badge ${r.result.significance}`}>{SIGNIFICANCE_LABEL[r.result.significance]}</span>
+                <td><span className={`badge ${r.result.verdict}`}>{VERDICT_LABEL[r.result.verdict]}</span>
                   {r.result.step_year && <span className="badge weak"> salto {r.result.step_year}</span>}</td>
               </tr>
             ) : (

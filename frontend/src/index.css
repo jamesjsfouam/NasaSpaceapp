@@ -44,15 +44,15 @@ button.primary:disabled { opacity: 0.6; cursor: default; }
 .tabs button { font: inherit; padding: 8px 14px; border: 0; background: transparent; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; }
 .tabs button[aria-selected='true'] { color: var(--ink); font-weight: 600; border-bottom-color: var(--blue); }
 .verdict { border-left: 5px solid var(--no); background: var(--no-bg); border-radius: 8px; padding: 12px 14px; }
-.verdict.very { border-color: var(--very); background: var(--very-bg); }
+.verdict.very, .verdict.significant { border-color: var(--very); background: var(--very-bg); }
 .verdict.yes { border-color: var(--yes); background: var(--yes-bg); }
-.verdict.weak { border-color: #d98a00; background: var(--weak-bg); }
+.verdict.weak, .verdict.not_yet { border-color: #d98a00; background: var(--weak-bg); }
 .lead { margin: 6px 0 0; line-height: 1.5; }
 .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
-.badge.very { background: var(--very-bg); color: var(--very); }
+.badge.very, .badge.significant { background: var(--very-bg); color: var(--very); }
 .badge.yes { background: var(--yes-bg); color: var(--yes); }
-.badge.weak { background: var(--weak-bg); color: var(--weak); }
-.badge.no { background: var(--no-bg); color: var(--no); }
+.badge.weak, .badge.not_yet { background: var(--weak-bg); color: var(--weak); }
+.badge.no, .badge.no_trend { background: var(--no-bg); color: var(--no); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 14px 0; }
 .facts > div { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
 .facts span { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
