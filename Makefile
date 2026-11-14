@@ -1,4 +1,4 @@
-.PHONY: setup setup-all backend frontend notebook test lint build samples
+.PHONY: setup setup-all backend frontend notebook test lint build samples globe
 
 setup:        ## Instala lo básico (API + análisis + frontend)
 	cd backend && uv sync
@@ -31,3 +31,6 @@ build:
 
 samples:      ## Vuelve a descargar las muestras sin conexión de NASA POWER
 	cd backend && PYTHONPATH=. uv run python -u scripts/fetch_samples.py
+
+globe:        ## Recalcula la malla global del globo 3D (2.592 celdas; ~15 min, reanudable)
+	cd backend && PYTHONPATH=. uv run python -u scripts/build_globe.py

@@ -26,3 +26,6 @@ data/*
 
 .DS_Store
 .firebase/
+
+# Avance temporal de la malla del globo
+backend/scripts/.globe_partial.json
