@@ -1,7 +1,7 @@
 # Memoria del proyecto · Detective de tendencias del sistema Tierra
 
 > Contexto para un Proyecto de Claude. Resume qué es el proyecto, cómo está hecho, qué se
-> decidió y por qué, y qué falta. Última actualización: 2026-11-14.
+> decidió y por qué, y qué falta. Última actualización: 2026-11-14 (incluye Clima y sociedad).
 
 ## 1. Identidad
 
@@ -52,6 +52,11 @@ Otros puntos del enunciado:
   con el p ajustado por Bonferroni. Se puede abrir cualquiera.
 - **Pestaña Comparar regiones:** la misma variable en las 7 regiones de ejemplo, con el recuento
   de cuántas suben y cuántas bajan de forma significativa.
+- **Pestaña Clima y sociedad:** compara la variable con un indicador anual del Banco Mundial
+  para el país.
+  - Muestra la correlación aparente y la correlación año a año sin tendencias, que es la que
+    decide el veredicto.
+  - Gráficas: las dos series estandarizadas y una dispersión año a año.
 - **Nota fija** sobre los límites del reanálisis.
 
 ## 4. Stack y arquitectura
@@ -64,7 +69,11 @@ backend/   Python 3.11+, FastAPI, httpx, numpy, pandas, scipy; gestionado con uv
   app/services/power.py   NASA POWER mensual por punto (1981–año anterior), una sola
                           petición trae las 14 variables; caché en memoria de 6 h; si falla,
                           usa app/data/samples/<region>.json (solo regiones de ejemplo)
-  app/services/trends.py  toda la estadística (ver sección 5)
+  app/services/trends.py  toda la estadística de tendencias (ver sección 5); analyze() para
+                          series mensuales y analyze_annual() para series anuales
+  app/services/worldbank.py  API del Banco Mundial (sin clave, a veces muy lenta): caché de 24 h
+                          y muestras app/data/samples/worldbank_<ISO3>.json
+  app/services/relate.py  correlación aparente y año a año (ver sección 5b)
   app/main.py             API
   app/services/meteomatics.py, planetary.py, firebase.py   integraciones opcionales
   scripts/fetch_samples.py  regenera las muestras (make samples)
@@ -83,6 +92,7 @@ Makefile   setup, setup-all, backend, frontend, notebook, test, lint, build, sam
 | `GET /api/trend?variable&lat&lon&start&end` | Tendencia de una variable en un punto |
 | `GET /api/scan?lat&lon&start&end` | Todas las variables de un punto |
 | `GET /api/compare?variable&start&end` | Una variable en todas las regiones |
+| `GET /api/relate?variable&indicator&country&lat&lon&place&start&end` | Relación con un indicador socioeconómico |
 | `GET /api/health` | Estado del servidor |
 | `GET /api/weather` | Tiempo actual con Meteomatics |
 
@@ -144,6 +154,33 @@ Se usa la comunidad "AG" de POWER.
   - el formato numérico usa coma.
 - La API se prueba sin red, usando las muestras locales.
 
+## 5b. Clima y sociedad (`relate.py`)
+
+- **Indicadores** (10, Banco Mundial):
+  - AG.YLD.CREL.KG (rendimiento de cereales)
+  - AG.PRD.CROP.XD y AG.PRD.FOOD.XD (índices de producción de cultivos y de alimentos)
+  - NV.AGR.TOTL.ZS (agricultura en el PIB)
+  - SL.AGR.EMPL.ZS (empleo en agricultura)
+  - SN.ITK.DEFC.ZS (subalimentación)
+  - SP.RUR.TOTL.ZS (población rural)
+  - NY.GDP.PCAP.KD (PIB por persona)
+  - EG.ELC.ACCS.ZS (acceso a electricidad)
+  - SP.POP.TOTL (población)
+
+  Cada uno lleva una `suggested_variable`, la variable de la Tierra con la que tiene sentido
+  compararlo.
+- **Países:** 12, de Centroamérica, México, Sudamérica, Argelia y Níger. Cada región de ejemplo
+  lleva su `country` (Svalbard no tiene).
+- **Método:**
+  - Mínimo de 10 años en común.
+  - Pearson con los valores tal cual (aparente).
+  - Pearson y Spearman tras quitar a cada serie su recta OLS (año a año). El veredicto lo da el p
+    de Pearson año a año.
+  - `trend_driven` se activa si la aparente es significativa y la de año a año no, o si baja más
+    de 0,3.
+  - Fuerza: |r| ≥ 0,5 fuerte; ≥ 0,3 moderada.
+- **Validado:** 4,5 % de falsos positivos con 1000 pares de tendencias independientes al azar.
+
 ## 6. Hallazgos con datos reales (1990–2025)
 
 | Caso | Resultado |
@@ -170,6 +207,9 @@ contrasta con otra fuente.
   la nota del reanálisis. Una herramienta que declare "muy significativo" un artefacto sería
   engañosa.
 - **Muestras locales en el repo:** para que la demo funcione aunque falle la red o la API.
+- **Banco Mundial para lo socioeconómico:** es abierto, sin clave, anual y por país. Ni la
+  correlación aparente ni la de año a año se esconden: así se enseña el error clásico de la
+  correlación espuria por tendencia.
 - **Historial del proyecto:** primero era un reto médico (monitor de salud del astronauta), que se
   abandonó al cambiar de reto. Luego el repo se rehízo en el nuevo repositorio con 15 commits
   lógicos, con fecha real y sin falsear fechas.
@@ -189,6 +229,8 @@ contrasta con otra fuente.
    - (c) **Pistas entre variables:** relacionar procesos, por ejemplo "sube la temperatura, sube
      la evaporación y baja la humedad del suelo".
 4. **Otras:**
+   - en Clima y sociedad: desfase de un año (lluvia de un año contra la cosecha del siguiente)
+     y promedio de varios puntos agrícolas del país;
    - mapa de tendencias con FDR;
    - modo "predice antes de ver";
    - quitar El Niño usando el índice ONI;

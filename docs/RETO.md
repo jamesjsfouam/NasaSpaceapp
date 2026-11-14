@@ -36,6 +36,27 @@ Las pruebas (`backend/tests/test_trends.py`) comprueban el método con series si
 tendencia conocida: recupera la pendiente, no inventa tendencias en ruido puro, ignora el
 ciclo estacional y detecta un escalón artificial.
 
+## Clima y sociedad (`backend/app/services/relate.py`)
+
+Compara la media anual de una variable de la Tierra en un punto con un indicador anual del
+Banco Mundial para el país (rendimiento de cereales, índices de producción, agricultura en el
+PIB, subalimentación, población rural, PIB por persona, electricidad, población).
+
+1. Se usan solo los años con datos en ambas series (mínimo 10).
+2. **Correlación aparente** (Pearson con los valores tal cual): si las dos series crecen con
+   el tiempo sale alta aunque no tengan nada que ver (por ejemplo, la temperatura y el PIB).
+3. **Correlación año a año:** Pearson y Spearman tras quitar a cada serie su recta de
+   tendencia. Responde a la pregunta útil: ¿en los años en que la variable se sale de lo
+   normal, el indicador también se sale? Es la que decide el veredicto.
+4. Se marca como "engañosa" (`trend_driven`) la correlación aparente que es significativa pero
+   desaparece, o baja mucho, al quitar las tendencias.
+5. Avisos: se compara un punto con un país entero; hay pocos años en común; Pearson y Spearman
+   no coinciden.
+
+Pruebas: una señal compartida sintética se detecta; dos tendencias independientes dan una
+correlación aparente alta pero no año a año; y la tasa de falsos positivos con 200 series al
+azar está cerca del 5 %. También se verificó con 1000 series: 4,5 %.
+
 ## Límites que hay que contar en la presentación
 
 - **NASA POWER es un reanálisis (MERRA-2)**, no observaciones directas. Cuando cambian los
@@ -48,6 +69,9 @@ ciclo estacional y detecta un escalón artificial.
     un resultado significativo no es automáticamente un resultado real.
 - Cada valor representa una celda de unos 50 × 60 km.
 - Solo tendencias lineales, como pide el alcance del reto.
+- En *Clima y sociedad*, una correlación no demuestra causa, y un punto puede no representar a
+  todo el país. Por eso el Corredor Seco se compara con Nicaragua sabiendo que la agricultura
+  del país no está solo ahí.
 
 ## Ideas para seguir (por prioridad)
 

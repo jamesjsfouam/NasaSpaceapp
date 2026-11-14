@@ -242,7 +242,31 @@ Estos métodos quedan fuera del alcance pedido, pero conviene saber nombrarlos s
 - **Regresión con índices climáticos**, por ejemplo el índice ONI de El Niño, para separar la
   variabilidad natural de la tendencia.
 
-### 2.11 Herramientas en Python
+### 2.11 Correlación con variables sociales y económicas
+
+La pestaña *Clima y sociedad* compara una variable de la Tierra con un indicador del Banco
+Mundial. Hay que entender tres ideas.
+
+- **Correlación de Pearson ($r$):** va de −1 a 1 y mide qué tan bien una recta relaciona las dos
+  series. Su prueba usa $t = r\sqrt{n-2}/\sqrt{1-r^2}$ con $n-2$ grados de libertad.
+  **Spearman ($\rho$)** hace lo mismo con los rangos y es robusta a años extremos.
+- **⭐ Correlación espuria por tendencia:** dos series que crecen con el tiempo salen muy
+  correlacionadas aunque no tengan nada que ver. La temperatura y el PIB suben a la vez, pero
+  eso no significa que el calor cause crecimiento. La solución es **quitar la tendencia** de
+  cada serie (restar su recta) y correlacionar lo que queda: las desviaciones año a año.
+  Pregunta útil: *"¿en los años más secos de lo normal, la cosecha fue peor de lo normal?"*.
+  La app muestra las dos cifras y avisa cuando la aparente es engañosa.
+- **Correlación no es causa:** puede haber un tercer factor (El Niño afecta a la lluvia **y** a
+  los precios), o la relación puede ir al revés. Además, comparar un punto de ~50 km con un país
+  entero diluye la relación: es un problema de **escala**.
+
+Ideas para ir más lejos:
+
+- **Desfase (lag):** la lluvia de este año puede afectar la cosecha del siguiente.
+- **Regresión múltiple:** separar el efecto de la lluvia y el de la temperatura.
+- **Promedio regional:** promediar varios puntos de las zonas agrícolas del país.
+
+### 2.12 Herramientas en Python
 
 | Tarea | Función |
 |---|---|
@@ -254,6 +278,7 @@ Estos métodos quedan fuera del alcance pedido, pero conviene saber nombrarlos s
 | Benjamini–Hochberg | `statsmodels.stats.multitest.multipletests(p, method="fdr_bh")` |
 | Descomposición STL | `statsmodels.tsa.seasonal.STL` |
 | Datos en rejilla (mapas) | `xarray` (extra `geo` del repo) |
+| Pearson / Spearman | `scipy.stats.pearsonr`, `scipy.stats.spearmanr` |
 
 ---
 
@@ -276,6 +301,10 @@ Hagan estos ejercicios con `make notebook` o con la web (`make backend` y `make 
 7. **A mano.** Con 6 números inventados, calculen $S$ de Mann-Kendall y la pendiente de
    Theil–Sen en papel. Comparen con `scipy`.
 8. **Tiempo de detección.** Calculen $n^*$ para Managua (temperatura) con la fórmula de 2.9.
+9. **Clima y sociedad.** En el Corredor Seco, comparen la humedad del suelo con el rendimiento
+   de cereales de Nicaragua. Comparen después la temperatura con el PIB por persona. ¿Por qué
+   la segunda correlación "aparente" es alta pero la de año a año no? ¿Qué falta para hablar de
+   causa?
 
 ---
 
