@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import power
+from app.services import power, worldbank
 
 client = TestClient(app)
 
@@ -16,7 +16,9 @@ def offline(monkeypatch):
         raise httpx.ConnectError("sin red")
 
     monkeypatch.setattr(power, "_fetch_live", boom)
+    monkeypatch.setattr(worldbank, "_fetch_live", boom)
     power._cache.clear()
+    worldbank._cache.clear()
 
 
 def test_health():
@@ -81,3 +83,49 @@ def test_weather_without_credentials_returns_503(monkeypatch):
     monkeypatch.setattr(get_settings(), "meteomatics_username", "")
     r = client.get("/api/weather", params={"lat": 12.13, "lon": -86.25})
     assert r.status_code == 503
+
+
+def test_catalog_lists_indicators_and_countries():
+    c = client.get("/api/catalog").json()
+    assert c["indicators"] and "NIC" in c["countries"]
+    variable_keys = {v["key"] for v in c["variables"]}
+    assert all(i["suggested_variable"] in variable_keys for i in c["indicators"])
+    assert all(r["country"] in c["countries"] for r in c["regions"] if r["country"])
+
+
+def test_relate_with_synthetic_indicator(monkeypatch):
+    async def fake(country, indicator):
+        return {y: 1000.0 + (y % 4) * 50 for y in range(1990, 2024)}, "banco-mundial"
+
+    monkeypatch.setattr(worldbank, "get_indicator", fake)
+    r = client.get("/api/relate", params={
+        "variable": "PRECTOTCORR", "indicator": "AG.YLD.CREL.KG", "country": "NIC",
+        "lat": 13.48, "lon": -86.58, "place": "Somoto",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    rel = body["relation"]
+    assert rel["n_years"] >= 30 and len(rel["points"]) == rel["n_years"]
+    assert "Somoto" in rel["interpretation"] and "Nicaragua" in rel["interpretation"]
+    assert body["indicator_trend"]["variable"] == "AG.YLD.CREL.KG"
+
+
+@pytest.mark.skipif(
+    not (power.SAMPLES_DIR / "worldbank_NIC.json").exists(),
+    reason="falta la muestra del Banco Mundial (make samples)",
+)
+def test_relate_uses_world_bank_sample_offline():
+    r = client.get("/api/relate", params={
+        "variable": "GWETROOT", "indicator": "AG.YLD.CREL.KG", "country": "NIC",
+        "lat": 13.48, "lon": -86.58,
+    })
+    assert r.status_code == 200 and r.json()["indicator_source"] == "muestra-local"
+
+
+@pytest.mark.parametrize("params,code", [
+    ({"variable": "T2M", "indicator": "NOPE", "country": "NIC"}, 404),
+    ({"variable": "T2M", "indicator": "SP.POP.TOTL", "country": "XXX"}, 404),
+])
+def test_relate_rejects_unknown_inputs(params, code):
+    params |= {"lat": 12.13, "lon": -86.25}
+    assert client.get("/api/relate", params=params).status_code == code

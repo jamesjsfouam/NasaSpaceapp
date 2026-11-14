@@ -6,19 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.catalog import (
+    COUNTRIES,
     DATA_NOTE,
     DEMOS,
+    INDICATOR_BY_KEY,
+    INDICATORS,
     REGION_BY_ID,
     REGIONS,
     THEMES,
     VARIABLE_BY_KEY,
     VARIABLES,
     Demo,
+    Indicator,
     Region,
     Variable,
 )
 from app.config import get_settings
-from app.services import meteomatics, power, trends
+from app.services import meteomatics, power, relate, trends, worldbank
 
 settings = get_settings()
 app = FastAPI(title="Detective de tendencias del sistema Tierra", version="0.2.0")
@@ -38,6 +42,8 @@ class Catalog(BaseModel):
     first_year: int
     last_year: int
     data_note: str
+    indicators: list[Indicator]
+    countries: dict[str, str]
 
 
 class TrendResponse(BaseModel):
@@ -113,6 +119,8 @@ def catalog() -> Catalog:
         first_year=power.FIRST_YEAR,
         last_year=power.last_full_year(),
         data_note=DATA_NOTE,
+        indicators=INDICATORS,
+        countries=COUNTRIES,
     )
 
 
@@ -168,6 +176,67 @@ async def compare(
         except (power.PowerUnavailable, trends.InsufficientData, KeyError) as exc:
             out.append(RegionTrend(region=region, source="", result=None, error=str(exc)))
     return out
+
+
+class RelateResponse(BaseModel):
+    earth_source: str
+    indicator_source: str
+    country: str
+    country_label: str
+    indicator: Indicator
+    indicator_trend: trends.TrendResult | None
+    relation: relate.Relation
+
+
+@app.get("/api/relate")
+async def relate_endpoint(
+    variable: str,
+    indicator: str,
+    country: str,
+    lat: float = Lat,
+    lon: float = Lon,
+    place: str = "",
+    start: int = 1990,
+    end: int = Query(default_factory=power.last_full_year),
+) -> RelateResponse:
+    """Relación año a año entre una variable de la Tierra y un indicador socioeconómico del país."""
+    _check_period(start, end)
+    var = _variable(variable)
+    ind = INDICATOR_BY_KEY.get(indicator)
+    if ind is None:
+        raise HTTPException(404, f"Indicador desconocido: {indicator}")
+    country = country.upper()
+    if country not in COUNTRIES:
+        raise HTTPException(404, f"País no disponible: {country}")
+
+    monthly, earth_source = await _monthly(lat, lon)
+    earth = trends.annual_means(monthly.get(var.key, {}), start, end)
+    try:
+        raw, ind_source = await worldbank.get_indicator(country, ind.key)
+    except worldbank.WorldBankUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+    series = {y: v for y, v in raw.items() if start <= y <= end}
+
+    as_variable = Variable(key=ind.key, label=ind.label, unit=ind.unit, theme="society",
+                           definition=ind.definition, ratio_scale=ind.ratio_scale)
+    try:
+        ind_trend = trends.analyze_annual(as_variable, list(series), list(series.values()), False)
+    except trends.InsufficientData:
+        ind_trend = None
+    try:
+        relation = relate.relate(var.label, earth, ind.label, series,
+                                 place or f"{lat:.2f}, {lon:.2f}", COUNTRIES[country])
+    except relate.InsufficientOverlap as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return RelateResponse(
+        earth_source=earth_source,
+        indicator_source=ind_source,
+        country=country,
+        country_label=COUNTRIES[country],
+        indicator=ind,
+        indicator_trend=ind_trend,
+        relation=relation,
+    )
 
 
 @app.get("/api/regions/{region_id}")
