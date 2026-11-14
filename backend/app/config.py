@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     azure_storage_connection_string: str = ""
     pc_sdk_subscription_key: str = ""
 
+    # IA (Claude). Opcional: sin clave, la app usa reglas y plantillas.
+    anthropic_api_key: str = ""
+
     # API
     cors_origins: str = "http://localhost:5173"
 

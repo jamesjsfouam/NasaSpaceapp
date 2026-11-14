@@ -3,7 +3,7 @@
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.catalog import (
     CONCERNS,
@@ -25,6 +25,7 @@ from app.catalog import (
 )
 from app.config import get_settings
 from app.services import (
+    ai,
     demography,
     forecast,
     meteomatics,
@@ -119,6 +120,7 @@ def server_health() -> dict:
             "meteomatics": bool(settings.meteomatics_username),
             "earthdata": bool(settings.earthdata_username),
             "firebase": bool(settings.firebase_project_id),
+            "ia_claude": bool(settings.anthropic_api_key),
         },
     }
 
@@ -459,3 +461,130 @@ async def satellite_landcover(
         except forecast.ForecastError:
             fc = None
     return LandCoverResponse(land_cover=lc, built_forecast=fc)
+
+
+# --- IA: de la pregunta al catálogo, y explicación de resultados ----------------------------
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+
+
+class AskResponse(BaseModel):
+    interpretation: ai.Interpretation
+    variables: list[Variable]
+    places: list[places.Place]
+
+
+@app.post("/api/ask")
+async def ask(body: AskRequest) -> AskResponse:
+    """Pregunta libre → preocupación y tipo de lugar del catálogo → variables recomendadas."""
+    interp = await ai.interpret(body.question)
+    found: list[places.Place] = []
+    if interp.place_query:
+        try:
+            found = await places.search(interp.place_query, count=5)
+        except places.PlacesUnavailable:
+            found = []
+    keys = recommend(interp.concern, interp.place_type)
+    return AskResponse(interpretation=interp, variables=[VARIABLE_BY_KEY[k] for k in keys], places=found)
+
+
+class ExplainRequest(BaseModel):
+    kind: str = Field(pattern="^(trend|demography|landcover|relate)$")
+    variable: str | None = None
+    indicator: str | None = None
+    country: str | None = None
+    lat: float | None = Field(None, ge=-90, le=90)
+    lon: float | None = Field(None, ge=-180, le=180)
+    place: str = ""
+    start: int = 1990
+    to_year: int = Field(2050, le=MAX_HORIZON)
+
+
+def _forecast_facts(fc: forecast.Forecast | None) -> dict:
+    if fc is None:
+        return {}
+    end = fc.points[-1]
+    return {
+        "forecast_text": fc.text,
+        "scenario": {"year": end.year, "value": round(end.value, 4), "low_95": round(end.low, 4),
+                     "high_95": round(end.high, 4), "based_on": f"{fc.base_first_year}-{fc.base_last_year}"},
+        "forecast_warnings": fc.warnings,
+    }
+
+
+def _trend_facts(t: trends.TrendResult | None) -> dict:
+    if t is None:
+        return {}
+    return {
+        "verdict": t.verdict, "interpretation": t.interpretation,
+        "period": f"{t.first_year}-{t.last_year}", "slope_per_decade": round(t.slope_per_decade, 5),
+        "ci95_per_decade": [round(t.ci_low_per_decade, 5), round(t.ci_high_per_decade, 5)],
+        "total_change": round(t.total_change, 5), "percent_change": t.percent_change,
+        "mann_kendall_p": round(t.mk_p, 5), "years_needed": t.years_needed,
+        "period_sensitive": t.period_sensitive, "warnings": t.warnings,
+    }
+
+
+def _need(value, name: str):
+    if value is None:
+        raise HTTPException(422, f"Falta el parámetro {name}")
+    return value
+
+
+@app.post("/api/explain")
+async def explain(body: ExplainRequest) -> ai.Explanation:
+    """Explicación en lenguaje llano de un resultado. Las cifras se recalculan aquí: la IA solo
+    recibe lo que calculó el motor, nunca números enviados por el navegador."""
+    end = power.last_full_year()
+    facts: dict = {"kind": body.kind}
+    if body.lat is not None and body.lon is not None:
+        loc = places.locate(round(body.lat, 4), round(body.lon, 4))
+        facts["place"] = body.place or loc.nearest_place or f"{body.lat:.2f}, {body.lon:.2f}"
+        facts["country"] = loc.country
+        facts["coordinates"] = [round(body.lat, 3), round(body.lon, 3)]
+
+    if body.kind == "trend":
+        lat, lon = _need(body.lat, "lat"), _need(body.lon, "lon")
+        res = await trend(variable=_need(body.variable, "variable"), lat=lat, lon=lon, start=body.start, end=end)
+        var = VARIABLE_BY_KEY[res.result.variable]
+        facts |= {"variable": var.label, "unit": var.unit, "definition": var.definition,
+                  "source": var.source, "reliability": var.reliability, **_trend_facts(res.result)}
+        try:
+            fc = await earth_forecast(variable=var.key, lat=lat, lon=lon, start=body.start, to_year=body.to_year)
+            facts |= _forecast_facts(fc.forecast)
+        except HTTPException:
+            pass
+    elif body.kind == "demography":
+        res = await demography_endpoint(country=_need(body.country, "country"),
+                                        indicator=body.indicator or "population",
+                                        start=body.start, to_year=body.to_year)
+        facts |= {"country": res.country_label, "indicator": res.indicator.label, "unit": res.indicator.unit,
+                  "definition": res.indicator.definition, "source": "ONU World Population Prospects (Our World in Data)",
+                  "latest": {"year": res.history[-1].year, "value": res.history[-1].mean} if res.history else None,
+                  "un_projection_at_horizon": res.un_value_at_horizon,
+                  **_trend_facts(res.trend), **_forecast_facts(res.forecast)}
+    elif body.kind == "landcover":
+        lat, lon = _need(body.lat, "lat"), _need(body.lon, "lon")
+        res = await satellite_landcover(lat=lat, lon=lon, half_km=8.0, to_year=body.to_year)
+        yrs = res.land_cover.years
+        facts |= {"source": "Cobertura del suelo anual de Impact Observatory/Esri (Sentinel-2, 10 m)",
+                  "area_km2": res.land_cover.area_km2,
+                  "first": yrs[0].model_dump() if yrs else None, "last": yrs[-1].model_dump() if yrs else None,
+                  "warnings": res.land_cover.warnings,
+                  "interpretation": "Porcentaje del cuadro que es zona construida, cultivos, árboles, etc., por año.",
+                  **_forecast_facts(res.built_forecast)}
+    else:  # relate
+        res = await relate_endpoint(variable=_need(body.variable, "variable"),
+                                    indicator=_need(body.indicator, "indicator"),
+                                    country=_need(body.country, "country"),
+                                    lat=_need(body.lat, "lat"), lon=_need(body.lon, "lon"),
+                                    place=body.place, start=body.start, end=end)
+        rel = res.relation
+        facts |= {"indicator": res.indicator.label, "country": res.country_label,
+                  "interpretation": rel.interpretation, "year_to_year_r": round(rel.detrended_r, 3),
+                  "year_to_year_p": round(rel.detrended_p, 5), "apparent_r": round(rel.raw_r, 3),
+                  "trend_driven": rel.trend_driven, "warnings": rel.warnings,
+                  "note": "Una correlación no demuestra causa."}
+    return await ai.explain(facts)
