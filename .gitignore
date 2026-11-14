@@ -1,0 +1,28 @@
+# Secretos
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+dist/
+
+# Datos: no subir datos crudos ni nada con información de pacientes
+data/*
+!data/.gitkeep
+*.dcm
+*.nii
+*.nii.gz
+
+.DS_Store
+.firebase/
