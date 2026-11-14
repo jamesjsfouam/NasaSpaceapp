@@ -1,8 +1,11 @@
 """API del Detective de tendencias del sistema Tierra. Arranque: uv run uvicorn app.main:app --reload"""
 
+from pathlib import Path
+
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from app.catalog import (
@@ -588,3 +591,17 @@ async def explain(body: ExplainRequest) -> ai.Explanation:
                   "trend_driven": rel.trend_driven, "warnings": rel.warnings,
                   "note": "Una correlación no demuestra causa."}
     return await ai.explain(facts)
+
+
+# --- Globo 3D: malla global precalculada (scripts/build_globe.py) ----------------------------
+
+GLOBE_FILE = Path(__file__).resolve().parent / "data" / "globe.json"
+
+
+@app.get("/api/globe")
+def globe() -> FileResponse:
+    """Malla de celdas de 5° con pendiente, p, veredicto y control FDR por variable."""
+    if not GLOBE_FILE.exists():
+        raise HTTPException(404, "La malla del globo aún no se ha generado (scripts/build_globe.py)")
+    return FileResponse(GLOBE_FILE, media_type="application/json",
+                        headers={"Cache-Control": "public, max-age=3600"})

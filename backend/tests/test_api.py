@@ -197,3 +197,15 @@ def test_satellite_endpoints_with_mocked_service(monkeypatch):
     lc = client.get("/api/satellite/landcover", params={"lat": 6.5, "lon": 3.4, "to_year": 2030}).json()
     assert lc["land_cover"]["suggested_place_type"] == "city"
     assert lc["built_forecast"]["points"][-1]["value"] == pytest.approx(63, abs=0.01)
+
+
+def test_globe_endpoint_serves_grid_or_404(monkeypatch, tmp_path):
+    from app import main
+
+    monkeypatch.setattr(main, "GLOBE_FILE", tmp_path / "nope.json")
+    assert client.get("/api/globe").status_code == 404
+    f = tmp_path / "globe.json"
+    f.write_text('{"cells": [], "variables": {}}')
+    monkeypatch.setattr(main, "GLOBE_FILE", f)
+    r = client.get("/api/globe")
+    assert r.status_code == 200 and r.json()["cells"] == []
