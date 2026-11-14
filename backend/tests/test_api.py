@@ -129,3 +129,71 @@ def test_relate_uses_world_bank_sample_offline():
 def test_relate_rejects_unknown_inputs(params, code):
     params |= {"lat": 12.13, "lon": -86.25}
     assert client.get("/api/relate", params=params).status_code == code
+
+
+# --- cualquier lugar, recomendador, previsiones, demografía y satélite (sin red) -------------
+
+def test_locate_any_coordinate_offline():
+    r = client.get("/api/places/locate", params={"lat": 48.85, "lon": 2.35}).json()
+    assert r["iso3"] == "FRA" and r["country"]
+    ocean = client.get("/api/places/locate", params={"lat": 0.0, "lon": -30.0}).json()
+    assert ocean["iso3"] is None
+
+
+def test_recommend_returns_at_most_three_known_variables():
+    r = client.get("/api/recommend", params={"concern": "heat", "place_type": "city"}).json()
+    assert 1 <= len(r["variables"]) <= 3 and r["variables"][0]["key"] == "T2M_MIN"
+    assert all(v["reliability"] for v in r["variables"])
+    assert client.get("/api/recommend", params={"concern": "nope"}).status_code == 404
+
+
+def test_catalog_covers_every_country_and_recommender_options():
+    c = client.get("/api/catalog").json()
+    assert len(c["countries"]) > 200 and c["concerns"] and c["place_types"] and c["demography"]
+
+
+def test_earth_forecast_from_sample():
+    r = client.get("/api/forecast", params={"variable": "T2M", "lat": 78.22, "lon": 15.65, "to_year": 2040})
+    assert r.status_code == 200
+    fc = r.json()["forecast"]
+    assert fc["points"][-1]["year"] == 2040 and fc["points"][-1]["low"] < fc["points"][-1]["high"]
+
+
+def test_demography_any_country(monkeypatch):
+    from app.services import demography
+
+    async def fake(iso3, key):
+        est = {y: 1e6 * (1 + 0.02 * (y - 1950)) for y in range(1950, 2024)}
+        proj = {y: 1e6 * (1 + 0.015 * (y - 1950)) for y in range(2024, 2101)}
+        return est, proj, "our-world-in-data"
+
+    monkeypatch.setattr(demography, "get_series", fake)
+    r = client.get("/api/demography", params={"country": "JPN", "indicator": "population", "to_year": 2050})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["country_label"] and body["trend"]["verdict"] == "significant"
+    assert body["forecast"]["points"][-1]["year"] == 2050 and body["un_value_at_horizon"]
+    assert client.get("/api/demography", params={"country": "XXX"}).status_code == 404
+
+
+def test_satellite_endpoints_with_mocked_service(monkeypatch):
+    from app.services import satellite
+
+    async def fake_timeline(lat, lon, years, half_km):
+        return [satellite.SatelliteImage(year=y, date=f"{y}-02-01", collection="sentinel-2-l2a",
+                                         platform="Sentinel-2A", cloud_cover=1.0, url="https://x/y.png")
+                for y in years]
+
+    async def fake_lc(lat, lon, half_km):
+        years = [satellite.LandCoverYear(year=y, shares={"Zona construida": 50 + (y - 2017)}, built_km2=1.0)
+                 for y in range(2017, 2024)]
+        return satellite.LandCover(area_km2=256, years=years, suggested_place_type="city")
+
+    monkeypatch.setattr(satellite, "timeline", fake_timeline)
+    monkeypatch.setattr(satellite, "land_cover", fake_lc)
+    imgs = client.get("/api/satellite/timeline", params={"lat": 6.5, "lon": 3.4, "years": "2000,2020"}).json()
+    assert [i["year"] for i in imgs] == [2000, 2020]
+    assert client.get("/api/satellite/timeline", params={"lat": 6.5, "lon": 3.4, "years": "1950"}).status_code == 422
+    lc = client.get("/api/satellite/landcover", params={"lat": 6.5, "lon": 3.4, "to_year": 2030}).json()
+    assert lc["land_cover"]["suggested_place_type"] == "city"
+    assert lc["built_forecast"]["points"][-1]["value"] == pytest.approx(63, abs=0.01)

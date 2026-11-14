@@ -6,11 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.catalog import (
-    COUNTRIES,
+    CONCERNS,
     DATA_NOTE,
     DEMOS,
     INDICATOR_BY_KEY,
     INDICATORS,
+    PLACE_TYPES,
     REGION_BY_ID,
     REGIONS,
     THEMES,
@@ -20,9 +21,20 @@ from app.catalog import (
     Indicator,
     Region,
     Variable,
+    recommend,
 )
 from app.config import get_settings
-from app.services import meteomatics, power, relate, trends, worldbank
+from app.services import (
+    demography,
+    forecast,
+    meteomatics,
+    places,
+    power,
+    relate,
+    satellite,
+    trends,
+    worldbank,
+)
 
 settings = get_settings()
 app = FastAPI(title="Detective de tendencias del sistema Tierra", version="0.2.0")
@@ -44,6 +56,9 @@ class Catalog(BaseModel):
     data_note: str
     indicators: list[Indicator]
     countries: dict[str, str]
+    concerns: dict[str, str]
+    place_types: dict[str, str]
+    demography: list[demography.DemographicIndicator]
 
 
 class TrendResponse(BaseModel):
@@ -120,7 +135,10 @@ def catalog() -> Catalog:
         last_year=power.last_full_year(),
         data_note=DATA_NOTE,
         indicators=INDICATORS,
-        countries=COUNTRIES,
+        countries=places.all_countries(),
+        concerns=CONCERNS,
+        place_types=PLACE_TYPES,
+        demography=demography.DEMOGRAPHY,
     )
 
 
@@ -206,8 +224,9 @@ async def relate_endpoint(
     if ind is None:
         raise HTTPException(404, f"Indicador desconocido: {indicator}")
     country = country.upper()
-    if country not in COUNTRIES:
-        raise HTTPException(404, f"País no disponible: {country}")
+    country_label = places.country_name(country)
+    if country_label is None:
+        raise HTTPException(404, f"País desconocido: {country}")
 
     monthly, earth_source = await _monthly(lat, lon)
     earth = trends.annual_means(monthly.get(var.key, {}), start, end)
@@ -225,14 +244,14 @@ async def relate_endpoint(
         ind_trend = None
     try:
         relation = relate.relate(var.label, earth, ind.label, series,
-                                 place or f"{lat:.2f}, {lon:.2f}", COUNTRIES[country])
+                                 place or f"{lat:.2f}, {lon:.2f}", country_label)
     except relate.InsufficientOverlap as exc:
         raise HTTPException(422, str(exc)) from exc
     return RelateResponse(
         earth_source=earth_source,
         indicator_source=ind_source,
         country=country,
-        country_label=COUNTRIES[country],
+        country_label=country_label,
         indicator=ind,
         indicator_trend=ind_trend,
         relation=relation,
@@ -257,3 +276,186 @@ async def weather(lat: float, lon: float, parameters: str = "t_2m:C,uv:idx") -> 
         raise HTTPException(502, "Meteomatics no respondió") from exc
 
 
+
+
+# --- Cualquier lugar del mundo ---------------------------------------------------------------
+
+
+@app.get("/api/places/search")
+async def places_search(q: str = Query(min_length=2, max_length=100)) -> list[places.Place]:
+    """Busca lugares por nombre (ciudades, pueblos, regiones) en todo el mundo."""
+    try:
+        return await places.search(q)
+    except places.PlacesUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@app.get("/api/places/locate")
+def places_locate(lat: float = Lat, lon: float = Lon) -> places.Location:
+    """País y lugar habitado más cercano a una coordenada (sin conexión)."""
+    return places.locate(round(lat, 4), round(lon, 4))
+
+
+class Recommendation(BaseModel):
+    concern: str
+    place_type: str | None
+    variables: list[Variable]
+
+
+@app.get("/api/recommend")
+def recommend_variables(concern: str, place_type: str | None = None) -> Recommendation:
+    """Recomendador por reglas: de una preocupación y un tipo de lugar a 3 variables como máximo."""
+    if concern not in CONCERNS:
+        raise HTTPException(404, f"Preocupación desconocida: {concern}")
+    if place_type is not None and place_type not in PLACE_TYPES:
+        raise HTTPException(404, f"Tipo de lugar desconocido: {place_type}")
+    keys = recommend(concern, place_type)
+    return Recommendation(concern=concern, place_type=place_type,
+                          variables=[VARIABLE_BY_KEY[k] for k in keys])
+
+
+# --- Previsiones (escenario si el ritmo continúa) ----------------------------------------------
+
+
+MAX_HORIZON = 2100
+
+
+class EarthForecastResponse(BaseModel):
+    source: str
+    variable: Variable
+    history: list[trends.AnnualPoint]
+    forecast: forecast.Forecast
+
+
+@app.get("/api/forecast")
+async def earth_forecast(
+    variable: str,
+    lat: float = Lat,
+    lon: float = Lon,
+    start: int = 1990,
+    to_year: int = Query(2050, le=MAX_HORIZON),
+) -> EarthForecastResponse:
+    """Escenario: valor de la variable si continuara el ritmo lineal observado."""
+    var = _variable(variable)
+    end = power.last_full_year()
+    _check_period(start, end)
+    monthly, source = await _monthly(lat, lon)
+    annual = trends.annual_means(monthly.get(var.key, {}), start, end)
+    try:
+        fc = forecast.linear_forecast(list(annual), list(annual.values()), to_year, var.label, var.unit,
+                                      forecast.bounds_for(var.unit, var.ratio_scale))
+    except forecast.ForecastError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return EarthForecastResponse(
+        source=source, variable=var,
+        history=[trends.AnnualPoint(year=y, mean=v) for y, v in annual.items()],
+        forecast=fc,
+    )
+
+
+# --- Demografía (cualquier país) ----------------------------------------------------------------
+
+
+class DemographyResponse(BaseModel):
+    source: str
+    country: str
+    country_label: str
+    indicator: demography.DemographicIndicator
+    history: list[trends.AnnualPoint]
+    un_projection: list[trends.AnnualPoint]  # proyección oficial de la ONU (variante media)
+    trend: trends.TrendResult | None
+    forecast: forecast.Forecast | None
+    un_value_at_horizon: float | None
+
+
+@app.get("/api/demography")
+async def demography_endpoint(
+    country: str,
+    indicator: str = "population",
+    start: int = 1990,
+    to_year: int = Query(2050, le=MAX_HORIZON),
+) -> DemographyResponse:
+    """Serie demográfica de un país, su tendencia, nuestra extrapolación y la proyección de la ONU."""
+    ind = demography.DEMOGRAPHY_BY_KEY.get(indicator)
+    if ind is None:
+        raise HTTPException(404, f"Indicador desconocido: {indicator}")
+    iso3 = country.upper()
+    label = places.country_name(iso3)
+    if label is None:
+        raise HTTPException(404, f"País desconocido: {country}")
+    try:
+        est, proj, source = await demography.get_series(iso3, ind.key)
+    except demography.DemographyUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+    window = {y: v for y, v in sorted(est.items()) if y >= start}
+    as_var = Variable(key=ind.key, label=ind.label, unit=ind.unit, theme="society",
+                      definition=ind.definition, ratio_scale=ind.ratio_scale)
+    try:
+        trend = trends.analyze_annual(as_var, list(window), list(window.values()), include_series=False)
+    except trends.InsufficientData:
+        trend = None
+    try:
+        fc = forecast.linear_forecast(list(window), list(window.values()), to_year, ind.label, ind.unit,
+                                      forecast.bounds_for(ind.unit, ind.ratio_scale))
+    except forecast.ForecastError:
+        fc = None
+    return DemographyResponse(
+        source=source, country=iso3, country_label=label, indicator=ind,
+        history=[trends.AnnualPoint(year=y, mean=v) for y, v in sorted(est.items())],
+        un_projection=[trends.AnnualPoint(year=y, mean=v) for y, v in sorted(proj.items()) if y <= to_year],
+        trend=trend, forecast=fc, un_value_at_horizon=proj.get(to_year),
+    )
+
+
+# --- Satélite (cualquier punto) -----------------------------------------------------------------
+
+
+DEFAULT_IMAGE_YEARS = [1990, 2000, 2010, 2016, 2020, 2025]
+
+
+@app.get("/api/satellite/timeline")
+async def satellite_timeline(
+    lat: float = Lat,
+    lon: float = Lon,
+    years: str = ",".join(map(str, DEFAULT_IMAGE_YEARS)),
+    half_km: float = Query(8.0, ge=1, le=40),
+) -> list[satellite.SatelliteImage]:
+    """Imagen de satélite con menos nubes de cada año, recortada alrededor del punto."""
+    try:
+        wanted = sorted({int(y) for y in years.split(",") if y.strip()})
+    except ValueError as exc:
+        raise HTTPException(422, "Años no válidos") from exc
+    if not wanted or len(wanted) > 12 or wanted[0] < 1984 or wanted[-1] > power.last_full_year() + 1:
+        raise HTTPException(422, "Elige entre 1 y 12 años entre 1984 y el año actual")
+    try:
+        return await satellite.timeline(lat, lon, wanted, half_km)
+    except satellite.SatelliteUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+class LandCoverResponse(BaseModel):
+    land_cover: satellite.LandCover
+    built_forecast: forecast.Forecast | None
+
+
+@app.get("/api/satellite/landcover")
+async def satellite_landcover(
+    lat: float = Lat,
+    lon: float = Lon,
+    half_km: float = Query(8.0, ge=1, le=40),
+    to_year: int = Query(2035, le=MAX_HORIZON),
+) -> LandCoverResponse:
+    """Cobertura del suelo año a año y escenario de la zona construida si el ritmo continúa."""
+    try:
+        lc = await satellite.land_cover(lat, lon, half_km)
+    except satellite.SatelliteUnavailable as exc:
+        raise HTTPException(502, str(exc)) from exc
+    fc = None
+    if len(lc.years) >= forecast.MIN_POINTS:
+        try:
+            fc = forecast.linear_forecast(
+                [y.year for y in lc.years], [y.shares["Zona construida"] for y in lc.years],
+                to_year, "Zona construida", "% del área", (0.0, 100.0))
+        except forecast.ForecastError:
+            fc = None
+    return LandCoverResponse(land_cover=lc, built_forecast=fc)
