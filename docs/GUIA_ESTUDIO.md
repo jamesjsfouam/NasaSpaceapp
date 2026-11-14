@@ -193,8 +193,18 @@ demasiado pequeños, es decir, falsos positivos.
   - **Pre-whitening** (Yue et al. 2002).
   - **Errores estándar HAC** en la regresión (`statsmodels`, `cov_type="HAC"`).
 
-La app hoy **avisa** cuando $r_1 > 0{,}3$. Implementar la corrección es una mejora concreta
-(sección 4).
+**Lo que hace la app ahora (motor *Verdict*):** usa Mann-Kendall con preblanqueo y la
+regresión con $n_{ef}$, y solo declara "significativa" si **las dos coinciden**. Además
+corrige el **sesgo de muestra pequeña** de $r_1$: con 30 años, la autocorrelación estimada
+sale demasiado baja, y sin corregir ninguno de los dos métodos se mantenía en el 5 %. Nuestra
+simulación con 30 años y sin tendencia dio estos falsos positivos:
+
+| $\phi$ | Regresión corriente | Solo preblanqueo | Solo $n_{ef}$ | **App** |
+|---|---|---|---|---|
+| 0,4 | 19 % | 11 % | 8,7 % | **4,8 %** |
+| 0,8 | 49 % | 23 % | 13 % | **8,2 %** |
+
+Detalle completo en `docs/RETO.md`.
 
 ### 2.7 Pruebas múltiples
 
@@ -229,6 +239,11 @@ Con nuestros datos de 1990–2025:
 | Svalbard, temperatura | +0,73 °C/déc | 0,87 °C | 0,22 | 13 | p = 0,18, aún no alcanza |
 | Ciudad de México, temperatura | +0,42 °C/déc | 0,39 °C | 0,13 | 11 | p < 0,001 |
 | Amazonía, lluvia | −0,42 mm/día/déc | 0,94 | 0,32 | 22 | p = 0,33, le faltan años |
+
+**Nota:** la fórmula original es para datos **mensuales**. La app trabaja con medias
+anuales, así que usa $\sigma$ y $\phi$ anuales y multiplica $\sigma$ por $\sqrt{12}$. Lo
+comprobamos por simulación: con $n^*$ años se detecta la tendencia en un 88–96 % de los casos.
+La app muestra $n^*$ cuando el veredicto es "todavía no".
 
 Esto conecta con una idea del reto: *"a veces todo lo que una tendencia necesita para ser
 significativa es un periodo más largo"*. Es una gran oportunidad de innovación (sección 4).
@@ -316,7 +331,7 @@ esfuerzo.
 
 ### 🥇 Alta prioridad
 
-1. **"¿Cuántos años necesito?" (tiempo de detección).** Si la tendencia no es significativa,
+1. ✅ **Ya implementado:** "¿Cuántos años necesito?" (tiempo de detección). Si la tendencia no es significativa,
    decir *"con este ruido, una tendencia así se detectaría en unos N años"*. Convierte un
    "no significativo" frustrante en una respuesta útil, responde literalmente a una frase del
    reto y es poco común en otras herramientas. Fórmula en la sección 2.9. **Esfuerzo:** bajo.
@@ -324,12 +339,12 @@ esfuerzo.
    independiente (GPM/IMERG para lluvia, MODIS para la temperatura de superficie) y mostrar si
    **coinciden**. Ataca de frente el problema de los artefactos y enseña método científico.
    **Esfuerzo:** medio; requiere cuenta Earthdata.
-3. **Corrección de la autocorrelación.** Usar Mann-Kendall modificado (Hamed y Rao) en lugar de
+3. ✅ **Ya implementado:** corrección de la autocorrelación. Usar Mann-Kendall modificado (Hamed y Rao) en lugar de
    solo avisar. Es rigor estadístico que los jueces científicos valoran. **Esfuerzo:** bajo.
 
 ### 🥈 Diferenciadores fuertes
 
-4. **Asistente con IA "anclada".** El reto lo sugiere. El usuario escribe *"¿se está secando
+4. ✅ **Ya implementado:** asistente con IA "anclada". El reto lo sugiere. El usuario escribe *"¿se está secando
    mi pueblo?"* y la IA propone variables del catálogo y una ubicación. **Regla de oro:** la IA
    solo elige entre opciones reales y explica; **nunca inventa números**, porque todas las cifras
    salen del análisis. **Esfuerzo:** medio.
