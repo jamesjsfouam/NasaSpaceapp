@@ -14,6 +14,8 @@ class Variable(BaseModel):
     theme: str
     definition: str
     ratio_scale: bool  # True si el cero es significativo (permite hablar de % de cambio)
+    source: str = "MERRA-2 (NASA POWER)"
+    reliability: str = "Reanálisis: modelo + observaciones. Contrasta con otra fuente antes de concluir."
 
 
 class Region(BaseModel):
@@ -44,46 +46,74 @@ THEMES: dict[str, str] = {
 VARIABLES: list[Variable] = [
     Variable(key="T2M", label="Temperatura del aire (media)", unit="°C", theme="temperature",
              ratio_scale=False,
-             definition="Temperatura promedio del aire a 2 m del suelo, la que sentimos en el día a día."),
+             definition="Temperatura promedio del aire a 2 m del suelo, la que sentimos en el día a día.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Fiable para tendencias de largo plazo; es una celda de ~50 km, no una estación. Contraste posible: AIRS."),
     Variable(key="T2M_MAX", label="Temperatura máxima diaria", unit="°C", theme="temperature",
              ratio_scale=False,
-             definition="Promedio de la temperatura más alta de cada día. Sube con las olas de calor."),
+             definition="Promedio de la temperatura más alta de cada día. Sube con las olas de calor.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Los extremos diarios del reanálisis son menos fiables que la media."),
     Variable(key="T2M_MIN", label="Temperatura mínima diaria", unit="°C", theme="temperature",
              ratio_scale=False,
-             definition="Promedio de la temperatura más baja de cada día (las noches)."),
+             definition="Promedio de la temperatura más baja de cada día (las noches).",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Los extremos diarios del reanálisis son menos fiables que la media."),
     Variable(key="TS", label="Temperatura de la superficie", unit="°C", theme="temperature",
              ratio_scale=False,
-             definition="Temperatura del suelo o del mar en la superficie, no la del aire."),
+             definition="Temperatura del suelo o del mar en la superficie, no la del aire.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Temperatura de la superficie modelada; MODIS la mide desde 2000 (solo con cielo despejado)."),
     Variable(key="PRECTOTCORR", label="Precipitación", unit="mm/día", theme="water",
              ratio_scale=True,
-             definition="Lluvia (y nieve) promedio por día. 1 mm equivale a 1 litro por metro cuadrado."),
+             definition="Lluvia (y nieve) promedio por día. 1 mm equivale a 1 litro por metro cuadrado.",
+             source="MERRA-2 corregida (NASA POWER)",
+             reliability="La lluvia del reanálisis puede tener saltos y tendencias falsas cuando cambian los satélites (hay uno conocido hacia 1987). Mejor contrastar con GPM IMERG."),
     Variable(key="EVLAND", label="Evaporación del suelo", unit="mm/día", theme="water",
              ratio_scale=True,
-             definition="Agua que pasa del suelo al aire por día. Depende del calor y de cuánta agua hay."),
+             definition="Agua que pasa del suelo al aire por día. Depende del calor y de cuánta agua hay.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Variable de modelo, depende de la lluvia del reanálisis: hereda sus saltos."),
     Variable(key="GWETROOT", label="Humedad del suelo (zona de raíces)", unit="0–1", theme="soil",
              ratio_scale=True,
-             definition="Qué tan mojado está el suelo donde llegan las raíces: 0 seco, 1 saturado. Clave para los cultivos."),
+             definition="Qué tan mojado está el suelo donde llegan las raíces: 0 seco, 1 saturado. Clave para los cultivos.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Humedad del suelo modelada; GLDAS o SMOS/SMAP sirven de contraste."),
     Variable(key="GWETTOP", label="Humedad del suelo (superficie)", unit="0–1", theme="soil",
              ratio_scale=True,
-             definition="Qué tan mojado está el suelo en los primeros centímetros: 0 seco, 1 saturado."),
+             definition="Qué tan mojado está el suelo en los primeros centímetros: 0 seco, 1 saturado.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Humedad del suelo modelada; SMOS/SMAP la miden desde el espacio desde 2010/2015."),
     Variable(key="RH2M", label="Humedad relativa del aire", unit="%", theme="humidity",
              ratio_scale=True,
-             definition="Cuánta humedad tiene el aire respecto al máximo que podría contener a esa temperatura."),
+             definition="Cuánta humedad tiene el aire respecto al máximo que podría contener a esa temperatura.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="La humedad del reanálisis es sensible a cambios en los satélites asimilados."),
     Variable(key="T2MDEW", label="Punto de rocío", unit="°C", theme="humidity",
              ratio_scale=False,
-             definition="Temperatura a la que el vapor del aire se condensa. Más alto significa aire más húmedo y pesado."),
+             definition="Temperatura a la que el vapor del aire se condensa. Más alto significa aire más húmedo y pesado.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="La humedad del reanálisis es sensible a cambios en los satélites asimilados."),
     Variable(key="CLOUD_AMT", label="Nubosidad", unit="%", theme="humidity",
              ratio_scale=True,
-             definition="Porcentaje del cielo cubierto por nubes."),
+             definition="Porcentaje del cielo cubierto por nubes.",
+             source="CERES / MERRA-2 (NASA POWER)",
+             reliability="Las nubes son difíciles de medir de forma homogénea en el tiempo."),
     Variable(key="ALLSKY_SFC_SW_DWN", label="Radiación solar en superficie", unit="MJ/m²/día",
              theme="sun", ratio_scale=True,
-             definition="Energía del Sol que llega al suelo por día. Es la que aprovechan los paneles solares y las plantas."),
+             definition="Energía del Sol que llega al suelo por día. Es la que aprovechan los paneles solares y las plantas.",
+             source="CERES (NASA POWER)",
+             reliability="Registro largo basado en satélite; bueno para tendencias."),
     Variable(key="WS2M", label="Velocidad del viento", unit="m/s", theme="wind",
              ratio_scale=True,
-             definition="Velocidad promedio del viento a 2 m del suelo."),
+             definition="Velocidad promedio del viento a 2 m del suelo.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="El viento cerca del suelo depende mucho del terreno local."),
     Variable(key="PS", label="Presión atmosférica", unit="kPa", theme="wind",
              ratio_scale=True,
-             definition="Peso del aire sobre la superficie. Cambia con las masas de aire y las tormentas."),
+             definition="Peso del aire sobre la superficie. Cambia con las masas de aire y las tormentas.",
+             source="MERRA-2 (NASA POWER)",
+             reliability="Muy estable y bien observada."),
 ]
 VARIABLE_BY_KEY = {v.key: v for v in VARIABLES}
 
@@ -179,3 +209,47 @@ COUNTRIES: dict[str, str] = {
     "DZA": "Argelia",
     "NER": "Níger",
 }
+
+
+# --- Recomendador por reglas (PDF, sección 3.2): de una preocupación y un tipo de lugar a
+# --- tres variables como máximo. Es una tabla, no un modelo: predecible y sin conexión.
+
+CONCERNS: dict[str, str] = {
+    "heat": "Calor",
+    "water": "Lluvia y agua",
+    "drought": "Sequía y cultivos",
+    "sun": "Sol y energía",
+    "wind": "Viento y tormentas",
+}
+
+PLACE_TYPES: dict[str, str] = {
+    "city": "Una ciudad",
+    "farmland": "Zona agrícola",
+    "forest": "Bosque o selva",
+    "coast": "Costa",
+    "dry": "Zona seca o desierto",
+    "cold": "Montaña o zona fría",
+}
+
+_RULES: dict[str, list[str]] = {
+    "heat": ["T2M", "T2M_MAX", "T2M_MIN"],
+    "water": ["PRECTOTCORR", "GWETROOT", "EVLAND"],
+    "drought": ["GWETROOT", "PRECTOTCORR", "T2M_MAX"],
+    "sun": ["ALLSKY_SFC_SW_DWN", "CLOUD_AMT", "T2M"],
+    "wind": ["WS2M", "PS", "PRECTOTCORR"],
+}
+_PLACE_TWEAKS: dict[tuple[str, str], list[str]] = {
+    ("heat", "city"): ["T2M_MIN", "T2M_MAX", "T2M"],  # las noches cálidas delatan la isla de calor
+    ("heat", "cold"): ["T2M", "TS", "T2M_MIN"],
+    ("heat", "coast"): ["T2M", "T2MDEW", "RH2M"],  # calor húmedo
+    ("water", "dry"): ["PRECTOTCORR", "GWETTOP", "RH2M"],
+    ("water", "forest"): ["PRECTOTCORR", "EVLAND", "RH2M"],
+    ("drought", "farmland"): ["GWETROOT", "PRECTOTCORR", "EVLAND"],
+    ("drought", "dry"): ["GWETTOP", "PRECTOTCORR", "T2M_MAX"],
+    ("wind", "coast"): ["WS2M", "PS", "PRECTOTCORR"],
+}
+
+
+def recommend(concern: str, place_type: str | None) -> list[str]:
+    keys = _PLACE_TWEAKS.get((concern, place_type or ""), _RULES.get(concern, []))
+    return [k for k in keys if k in VARIABLE_BY_KEY][:3]

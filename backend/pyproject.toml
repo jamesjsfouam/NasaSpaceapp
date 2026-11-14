@@ -11,6 +11,9 @@ dependencies = [
     "numpy>=2.0",
     "pandas>=2.2",
     "scipy>=1.14",
+    "anthropic>=1.0",
+    "reverse-geocoder>=1.5.1",
+    "pycountry>=26.2.16",
 ]
 
 [project.optional-dependencies]
