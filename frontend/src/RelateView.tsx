@@ -3,6 +3,7 @@ import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { api, fmt, pText, type Catalog, type RelateResponse } from './api'
+import { ExplainPanel } from './Explain'
 
 export type RelateQuery = {
   variable: string; lat: number; lon: number; start: number; label: string; country: string | null
@@ -148,6 +149,7 @@ export function RelateView({ cat, query }: { cat: Catalog; query: RelateQuery })
               </ResponsiveContainer>
             </div>
           </div>
+          <ExplainPanel request={{ kind: 'relate', variable: query.variable, indicator, country, lat: query.lat, lon: query.lon, place: query.label.split(',')[0], start: query.start }} />
           <p className="muted small">
             Fuentes: NASA POWER{data.earth_source === 'muestra-local' ? ' (muestra local)' : ''} y Banco
             Mundial{data.indicator_source === 'muestra-local' ? ' (muestra local)' : ''}. Spearman año a año:

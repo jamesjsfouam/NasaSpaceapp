@@ -1,29 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  api, DIRECTION_ARROW, fmt, fmtP, pText, VERDICT_LABEL,
-  type Catalog, type RegionTrend, type ScanResponse, type Trend, type TrendResponse,
+  api, apiPost, DIRECTION_ARROW, fmt, fmtP, pText, VERDICT_LABEL,
+  type AskResponse, type Catalog, type EarthForecastResponse, type Forecast, type Location, type Place,
+  type RegionTrend, type ScanResponse, type Trend, type TrendResponse, type Variable,
 } from './api'
+import { ComparePlaces } from './ComparePlaces'
+import { DemographyView } from './DemographyView'
+import { ExplainPanel } from './Explain'
+import { MapPicker } from './MapPicker'
 import { RelateView } from './RelateView'
+import { SatelliteView } from './SatelliteView'
 import { TrendChart } from './TrendChart'
 
-type Tab = 'trend' | 'scan' | 'compare' | 'relate'
-type Query = { variable: string; lat: number; lon: number; start: number; label: string; country: string | null }
+type Tab = 'trend' | 'compare' | 'scan' | 'regions' | 'population' | 'satellite' | 'relate'
+type Spot = { lat: number; lon: number; label: string; iso3: string | null; country: string | null }
+type Query = { variable: string; start: number; spot: Spot }
 
-const qs = (q: Query) => `lat=${q.lat}&lon=${q.lon}&start=${q.start}`
+const TABS: [Tab, string][] = [
+  ['trend', 'Veredicto'], ['compare', 'Comparar lugares'], ['satellite', 'Satélite'], ['population', 'Población'],
+  ['relate', 'Clima y sociedad'], ['scan', 'Escanear el lugar'], ['regions', 'Regiones de ejemplo'],
+]
 
 export default function App() {
   const [cat, setCat] = useState<Catalog | null>(null)
-  const [theme, setTheme] = useState('temperature')
-  const [variable, setVariable] = useState('T2M')
-  const [regionId, setRegionId] = useState('managua')
-  const [coords, setCoords] = useState({ lat: 12.13, lon: -86.25 })
+  const [spot, setSpot] = useState<Spot>({ lat: 12.13, lon: -86.25, label: 'Managua', iso3: 'NIC', country: 'Nicaragua' })
+  const [second, setSecond] = useState<{ lat: number; lon: number; label: string } | null>(null)
+  const [pickSecond, setPickSecond] = useState(false)
+  const [search, setSearch] = useState('')
+  const [found, setFound] = useState<Place[]>([])
+  const [question, setQuestion] = useState('')
+  const [askInfo, setAskInfo] = useState<string | null>(null)
+  const [concern, setConcern] = useState('heat')
+  const [placeType, setPlaceType] = useState<string | null>('city')
+  const [recommended, setRecommended] = useState<Variable[]>([])
+  const [variable, setVariable] = useState('T2M_MIN')
   const [start, setStart] = useState(1990)
 
   const [query, setQuery] = useState<Query | null>(null)
   const [tab, setTab] = useState<Tab>('trend')
   const [trend, setTrend] = useState<TrendResponse | null>(null)
+  const [scenario, setScenario] = useState<Forecast | null>(null)
   const [scan, setScan] = useState<ScanResponse | null>(null)
-  const [compare, setCompare] = useState<RegionTrend[] | null>(null)
+  const [regions, setRegions] = useState<RegionTrend[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const run = useRef(0)
@@ -32,15 +50,61 @@ export default function App() {
     api<Catalog>('/api/catalog').then(setCat).catch((e: Error) => setError(e.message))
   }, [])
 
-  const variables = useMemo(() => cat?.variables.filter((v) => v.theme === theme) ?? [], [cat, theme])
+  // Recomendador por reglas: preocupación + tipo de lugar → 3 variables como máximo.
+  useEffect(() => {
+    const qs = `concern=${concern}${placeType ? `&place_type=${placeType}` : ''}`
+    api<{ variables: Variable[] }>(`/api/recommend?${qs}`).then((r) => {
+      setRecommended(r.variables)
+      if (r.variables.length) setVariable(r.variables[0].key)
+    }).catch(() => setRecommended([]))
+  }, [concern, placeType])
+
   const current = cat?.variables.find((v) => v.key === variable)
+
+  async function pickPoint(p: { lat: number; lon: number }, label?: string) {
+    if (pickSecond) {
+      setSecond({ ...p, label: label ?? `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}` })
+      setTab('compare')
+      return
+    }
+    setFound([])
+    try {
+      const loc = await api<Location>(`/api/places/locate?lat=${p.lat}&lon=${p.lon}`)
+      setSpot({
+        ...p, iso3: loc.iso3, country: loc.country,
+        label: label ?? (loc.nearest_place ? `${loc.nearest_place}${loc.country ? `, ${loc.country}` : ''}` : `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)} (mar abierto)`),
+      })
+    } catch {
+      setSpot({ ...p, iso3: null, country: null, label: label ?? `${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}` })
+    }
+  }
+
+  async function doSearch(text = search) {
+    setError(null)
+    try { setFound(await api<Place[]>(`/api/places/search?q=${encodeURIComponent(text)}`)) } catch (e) { setError((e as Error).message) }
+  }
+
+  async function ask() {
+    setError(null); setAskInfo('Interpretando…')
+    try {
+      const r = await apiPost<AskResponse>('/api/ask', { question })
+      setConcern(r.interpretation.concern)
+      setPlaceType(r.interpretation.place_type)
+      if (r.places.length) setFound(r.places)
+      setAskInfo(`${r.interpretation.source === 'claude' ? 'La IA' : 'Las reglas'} entendieron: ${cat?.concerns[r.interpretation.concern] ?? r.interpretation.concern}` +
+        `${r.interpretation.place_type ? ` en ${(cat?.place_types[r.interpretation.place_type] ?? '').toLowerCase()}` : ''}` +
+        `${r.places.length ? `. Elige el lugar “${r.interpretation.place_query}” abajo.` : '.'}`)
+    } catch (e) {
+      setAskInfo(null); setError((e as Error).message)
+    }
+  }
 
   const investigate = useCallback(async (q: Query) => {
     const id = ++run.current
     setQuery(q); setTab('trend'); setBusy(true); setError(null)
-    setTrend(null); setScan(null); setCompare(null)
+    setTrend(null); setScenario(null); setScan(null); setRegions(null); setSecond(null)
     try {
-      const t = await api<TrendResponse>(`/api/trend?variable=${q.variable}&${qs(q)}`)
+      const t = await api<TrendResponse>(`/api/trend?variable=${q.variable}&lat=${q.spot.lat}&lon=${q.spot.lon}&start=${q.start}`)
       if (id === run.current) setTrend(t)
     } catch (e) {
       if (id === run.current) setError((e as Error).message)
@@ -57,13 +121,13 @@ export default function App() {
     try {
       if (next === 'scan' && !scan) {
         setBusy(true)
-        const s = await api<ScanResponse>(`/api/scan?${qs(query)}`)
+        const s = await api<ScanResponse>(`/api/scan?lat=${query.spot.lat}&lon=${query.spot.lon}&start=${query.start}`)
         if (id === run.current) setScan(s)
       }
-      if (next === 'compare' && !compare) {
+      if (next === 'regions' && !regions) {
         setBusy(true)
         const c = await api<RegionTrend[]>(`/api/compare?variable=${query.variable}&start=${query.start}`)
-        if (id === run.current) setCompare(c)
+        if (id === run.current) setRegions(c)
       }
     } catch (e) {
       if (id === run.current) setError((e as Error).message)
@@ -72,57 +136,44 @@ export default function App() {
     }
   }
 
-  function pickRegion(id: string) {
-    setRegionId(id)
-    const r = cat?.regions.find((x) => x.id === id)
-    if (r) setCoords({ lat: r.lat, lon: r.lon })
-  }
-
-  function pickTheme(t: string) {
-    setTheme(t)
-    const first = cat?.variables.find((v) => v.theme === t)
-    if (first) setVariable(first.key)
-  }
-
-  function submit() {
-    const region = cat?.regions.find((r) => r.id === regionId)
-    investigate({
-      variable, start, lat: coords.lat, lon: coords.lon,
-      label: region?.label ?? `${coords.lat}, ${coords.lon}`,
-      country: region?.country ?? null,
-    })
+  async function loadScenario(toYear: number) {
+    if (!query) return
+    try {
+      const r = await api<EarthForecastResponse>(`/api/forecast?variable=${query.variable}&lat=${query.spot.lat}&lon=${query.spot.lon}&start=${query.start}&to_year=${toYear}`)
+      setScenario(r.forecast)
+    } catch (e) { setError((e as Error).message) }
   }
 
   function openDemo(d: Catalog['demos'][number]) {
-    const v = cat?.variables.find((x) => x.key === d.variable)
     const r = cat?.regions.find((x) => x.id === d.region)
-    if (!v || !r) return
-    setTheme(v.theme); setVariable(v.key); setRegionId(r.id); setCoords({ lat: r.lat, lon: r.lon }); setStart(1990)
-    investigate({ variable: v.key, start: 1990, lat: r.lat, lon: r.lon, label: r.label, country: r.country })
+    if (!r) return
+    const s: Spot = { lat: r.lat, lon: r.lon, label: r.label, iso3: r.country, country: r.country ? cat?.countries[r.country] ?? null : null }
+    setSpot(s); setVariable(d.variable); setStart(1990)
+    investigate({ variable: d.variable, start: 1990, spot: s })
   }
 
   function openVariable(key: string) {
     if (!query) return
-    const v = cat?.variables.find((x) => x.key === key)
-    if (v) { setTheme(v.theme); setVariable(key) }
+    setVariable(key)
     investigate({ ...query, variable: key })
   }
 
-  const years = cat ? Array.from({ length: cat.last_year - 10 - cat.first_year + 1 }, (_, i) => cat.first_year + i) : []
+  const years = useMemo(() => cat ? Array.from({ length: cat.last_year - 15 - cat.first_year + 2 }, (_, i) => cat.first_year + i) : [], [cat])
+  const relateQuery = query ? { variable: query.variable, lat: query.spot.lat, lon: query.spot.lon, start: query.start, label: query.spot.label, country: query.spot.iso3 } : null
 
   return (
     <main>
       <header>
         <h1>Detective de tendencias del sistema Tierra</h1>
         <p>
-          Elige una variable y un lugar. La herramienta te dirá <strong>qué</strong> está cambiando,
-          <strong> dónde</strong>, <strong>cuánto</strong> y si el cambio es <strong>significativo</strong>{' '}
-          o podría ser casualidad. Laboratorio Boreal · NASA Space Apps 2026.
+          Elige cualquier lugar del mundo y una pregunta. La herramienta te dice <strong>qué</strong> cambia,
+          <strong> dónde</strong>, <strong>cuánto</strong> y si es <strong>significativo</strong>, con datos de la NASA,
+          satélite y la ONU. Laboratorio Boreal · NASA Space Apps 2026.
         </p>
       </header>
 
       {error && <p className="error" role="alert">{error}</p>}
-      {!cat && !error && <p className="muted">Cargando catálogo…</p>}
+      {!cat && !error && <p className="muted">Cargando…</p>}
 
       {cat && (
         <>
@@ -139,57 +190,86 @@ export default function App() {
           </section>
 
           <section>
-            <h2>O investiga lo tuyo</h2>
+            <h2>1 · Preguntar</h2>
+            <div className="ask">
+              <input value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={500}
+                placeholder="Escribe tu duda, p. ej.: ¿se está secando el suelo en Estelí?"
+                onKeyDown={(e) => e.key === 'Enter' && question.length > 2 && ask()} />
+              <button className="secondary" onClick={ask} disabled={question.length < 3}>Interpretar</button>
+            </div>
+            {askInfo && <p className="muted small">{askInfo}</p>}
+
             <div className="steps">
               <div>
-                <h3>1 · ¿Qué te interesa?</h3>
+                <h3>¿Dónde? Cualquier lugar del mundo</h3>
+                <div className="search">
+                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Busca una ciudad, pueblo o región"
+                    onKeyDown={(e) => e.key === 'Enter' && search.length > 1 && doSearch()} />
+                  <button className="secondary" onClick={() => doSearch()} disabled={search.length < 2}>Buscar</button>
+                </div>
+                {found.length > 0 && (
+                  <ul className="results">
+                    {found.map((p) => (
+                      <li key={`${p.lat},${p.lon}`}>
+                        <button className="link" onClick={() => pickPoint({ lat: p.lat, lon: p.lon }, `${p.name}${p.country ? `, ${p.country}` : ''}`)}>
+                          {p.name}{p.admin1 ? `, ${p.admin1}` : ''}{p.country ? ` (${p.country})` : ''}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <MapPicker point={spot} second={second} onPick={(p) => pickPoint(p)} />
+                <div className="row small">
+                  <span>📍 <strong>{spot.label}</strong> · {spot.lat.toFixed(2)}, {spot.lon.toFixed(2)}</span>
+                  <label className="inline">
+                    <input type="checkbox" checked={pickSecond} onChange={(e) => setPickSecond(e.target.checked)} />
+                    El próximo clic elige un 2.º lugar para comparar
+                  </label>
+                </div>
                 <div className="chips">
-                  {Object.entries(cat.themes).map(([k, label]) => (
-                    <button key={k} className={`chip ${k === theme ? 'on' : ''}`} onClick={() => pickTheme(k)}
-                      aria-pressed={k === theme}>{label}</button>
+                  {cat.regions.map((r) => (
+                    <button key={r.id} className="chip" onClick={() => pickPoint({ lat: r.lat, lon: r.lon }, r.label)}>{r.label.split(',')[0]}</button>
                   ))}
                 </div>
-                <label>
-                  Variable
-                  <select value={variable} onChange={(e) => setVariable(e.target.value)}>
-                    {variables.map((v) => <option key={v.key} value={v.key}>{v.label} ({v.unit})</option>)}
-                  </select>
-                </label>
-                {current && <p className="definition">{current.definition}</p>}
               </div>
 
               <div>
-                <h3>2 · ¿Dónde?</h3>
-                <label>
-                  Región
-                  <select value={regionId} onChange={(e) => pickRegion(e.target.value)}>
-                    {cat.regions.map((r) => <option key={r.id} value={r.id}>{r.label} · {r.biome}</option>)}
-                    <option value="custom">Otra ubicación (coordenadas)</option>
-                  </select>
-                </label>
-                <div className="coords">
-                  <label>Latitud
-                    <input type="number" step="0.01" min={-90} max={90} value={coords.lat}
-                      onChange={(e) => { setRegionId('custom'); setCoords({ ...coords, lat: e.target.valueAsNumber }) }} />
-                  </label>
-                  <label>Longitud
-                    <input type="number" step="0.01" min={-180} max={180} value={coords.lon}
-                      onChange={(e) => { setRegionId('custom'); setCoords({ ...coords, lon: e.target.valueAsNumber }) }} />
-                  </label>
+                <h3>¿Qué te preocupa?</h3>
+                <div className="chips">
+                  {Object.entries(cat.concerns).map(([k, label]) => (
+                    <button key={k} className={`chip ${k === concern ? 'on' : ''}`} aria-pressed={k === concern} onClick={() => setConcern(k)}>{label}</button>
+                  ))}
                 </div>
-              </div>
-
-              <div>
-                <h3>3 · ¿Desde cuándo?</h3>
-                <label>
-                  Año de inicio (hasta {cat.last_year})
+                <h3>¿Qué tipo de lugar es?</h3>
+                <div className="chips">
+                  {Object.entries(cat.place_types).map(([k, label]) => (
+                    <button key={k} className={`chip ${k === placeType ? 'on' : ''}`} aria-pressed={k === placeType}
+                      onClick={() => setPlaceType(k === placeType ? null : k)}>{label}</button>
+                  ))}
+                </div>
+                <h3>Variables recomendadas</h3>
+                <div className="recs-list">
+                  {recommended.map((v) => (
+                    <button key={v.key} className={`rec ${v.key === variable ? 'on' : ''}`} onClick={() => setVariable(v.key)}>
+                      <strong>{v.label}</strong> <span className="muted small">({v.unit})</span>
+                      <span className="small">{v.definition}</span>
+                      <span className="muted small">{v.source}</span>
+                    </button>
+                  ))}
+                </div>
+                <label>O cualquier otra variable
+                  <select value={variable} onChange={(e) => setVariable(e.target.value)}>
+                    {cat.variables.map((v) => <option key={v.key} value={v.key}>{v.label} ({v.unit})</option>)}
+                  </select>
+                </label>
+                {current && <p className="definition">⚠ {current.reliability}</p>}
+                <label>Desde el año
                   <select value={start} onChange={(e) => setStart(Number(e.target.value))}>
                     {years.map((y) => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </label>
-                <p className="muted small">Más años dan más confianza estadística.</p>
-                <button className="primary" onClick={submit} disabled={busy || Number.isNaN(coords.lat + coords.lon)}>
-                  {busy && tab === 'trend' ? 'Investigando…' : 'Investigar tendencia'}
+                <button className="primary" onClick={() => investigate({ variable, start, spot })} disabled={busy}>
+                  {busy && tab === 'trend' ? 'Investigando…' : 'Ver el veredicto'}
                 </button>
               </div>
             </div>
@@ -197,29 +277,31 @@ export default function App() {
         </>
       )}
 
-      {query && (
+      {query && cat && (
         <section aria-live="polite">
           <div className="tabs" role="tablist">
-            <button role="tab" aria-selected={tab === 'trend'} onClick={() => openTab('trend')}>Tendencia</button>
-            <button role="tab" aria-selected={tab === 'scan'} onClick={() => openTab('scan')}>
-              Escanear {query.label.split(',')[0]}
-            </button>
-            <button role="tab" aria-selected={tab === 'compare'} onClick={() => openTab('compare')}>
-              Comparar regiones
-            </button>
-            <button role="tab" aria-selected={tab === 'relate'} onClick={() => openTab('relate')}>
-              Clima y sociedad
-            </button>
+            {TABS.map(([k, label]) => (
+              <button key={k} role="tab" aria-selected={tab === k} onClick={() => openTab(k)}>{label}</button>
+            ))}
           </div>
-          {busy && tab !== 'relate' && <p className="muted">Consultando datos de NASA…</p>}
+          {busy && !['relate', 'population', 'satellite'].includes(tab) && <p className="muted">Consultando datos…</p>}
 
-          {tab === 'trend' && trend && <TrendView data={trend} where={query.label} />}
-          {tab === 'scan' && scan && <ScanView data={scan} onOpen={openVariable} />}
-          {tab === 'relate' && cat && (
-            <RelateView key={`${query.variable}-${query.lat}-${query.lon}-${query.start}`} cat={cat} query={query} />
+          {tab === 'trend' && trend && (
+            <TrendView data={trend} where={query.spot.label} scenario={scenario} onScenario={loadScenario}
+              start={query.start} reliability={cat.variables.find((v) => v.key === query.variable)?.reliability ?? ''} />
           )}
-          {tab === 'compare' && compare && cat && (
-            <CompareView rows={compare} variable={cat.variables.find((v) => v.key === query.variable)?.label ?? ''} />
+          {tab === 'compare' && (
+            <ComparePlaces variable={query.variable} start={query.start} a={query.spot} second={second}
+              onSecond={(s) => setSecond(s)} />
+          )}
+          {tab === 'scan' && scan && <ScanView data={scan} onOpen={openVariable} />}
+          {tab === 'regions' && regions && (
+            <RegionsView rows={regions} variable={cat.variables.find((v) => v.key === query.variable)?.label ?? ''} />
+          )}
+          {tab === 'population' && <DemographyView cat={cat} country={query.spot.iso3} start={query.start} />}
+          {tab === 'satellite' && <SatelliteView lat={query.spot.lat} lon={query.spot.lon} label={query.spot.label} />}
+          {tab === 'relate' && relateQuery && (
+            <RelateView key={`${query.variable}-${query.spot.lat}-${query.spot.lon}-${query.start}`} cat={cat} query={relateQuery} />
           )}
         </section>
       )}
@@ -229,9 +311,12 @@ export default function App() {
   )
 }
 
-function TrendView({ data, where }: { data: TrendResponse; where: string }) {
+function TrendView({ data, where, scenario, onScenario, start, reliability }: {
+  data: TrendResponse; where: string; scenario: Forecast | null; onScenario: (y: number) => void; start: number; reliability: string
+}) {
   const t = data.result
   const sign = t.total_change > 0 ? '+' : ''
+  const [toYear, setToYear] = useState(2050)
   return (
     <div>
       <div className={`verdict ${t.verdict}`}>
@@ -252,16 +337,32 @@ function TrendView({ data, where }: { data: TrendResponse; where: string }) {
         </div>
         <div>
           <span>¿Significativo?</span>
-          <strong>{t.significant ? 'Sí' : 'No'} ({pText(t.mk_p)})</strong>
+          <strong>{t.significant ? 'Sí' : 'Todavía no'} ({pText(t.mk_p)})</strong>
           <em>{t.significant ? 'Muy improbable que sea azar' : t.years_needed ? `Harían falta ~${t.years_needed} años de datos` : 'Compatible con que no haya cambio'}</em>
         </div>
       </div>
 
-      {t.warnings.length > 0 && (
-        <ul className="warnings">{t.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+      {t.warnings.length > 0 && <ul className="warnings">{t.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+      <p className="muted small">Fuente y fiabilidad: {reliability}</p>
+
+      <TrendChart trend={t} forecast={scenario} />
+
+      <div className="scenario">
+        <label className="inline">Escenario hasta
+          <select value={toYear} onChange={(e) => setToYear(Number(e.target.value))}>
+            {[2030, 2040, 2050, 2075, 2100].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </label>
+        <button className="secondary" onClick={() => onScenario(toYear)}>Ver cómo se vería si el ritmo continúa</button>
+      </div>
+      {scenario && (
+        <>
+          <p className="small">{scenario.text}</p>
+          {scenario.warnings.map((w) => <p key={w} className="muted small">⚠ {w}</p>)}
+        </>
       )}
 
-      <TrendChart trend={t} />
+      <ExplainPanel request={{ kind: 'trend', variable: t.variable, lat: data.lat, lon: data.lon, place: where, start, to_year: toYear }} />
 
       <details>
         <summary>¿Cómo se calculó?</summary>
@@ -272,6 +373,7 @@ function TrendView({ data, where }: { data: TrendResponse; where: string }) {
           <li>Los datos del clima tienen memoria: un año cálido suele seguir a otro. Eso engaña a las pruebas normales, así que se usan dos que lo corrigen:
             <strong> Mann-Kendall con preblanqueo</strong> y <strong>regresión con tamaño de muestra efectivo</strong> (aquí {t.n_years} años valen como {fmt(t.n_effective, 2)} independientes).</li>
           <li>Veredicto: <em>significativa</em> si p &lt; 0,05 y el intervalo no incluye el cero; <em>todavía no</em> si p está entre 0,05 y 0,20 o las pruebas no coinciden; <em>sin tendencia clara</em> si p ≥ 0,20.</li>
+          <li>Si no es significativa, se estima cuántos años de datos harían falta para detectar ese ritmo (Weatherhead y colaboradores, 1998).</li>
         </ol>
         <table>
           <thead><tr><th>Método</th><th>Pendiente / década</th><th>IC 95 %</th><th>p</th></tr></thead>
@@ -301,7 +403,7 @@ function Rows({ items, onOpen }: { items: Trend[]; onOpen?: (key: string) => voi
           <td>{fmt(r.slope_per_decade)} {r.unit}</td>
           <td>{fmtP(r.mk_p)}{r.p_adjusted !== null ? ` · ${fmtP(r.p_adjusted)}` : ''}</td>
           <td><span className={`badge ${r.verdict}`}>{VERDICT_LABEL[r.verdict]}</span>
-            {r.step_year && <span className="badge weak" title="Posible salto brusco en los datos"> salto {r.step_year}</span>}</td>
+            {r.step_year && <span className="badge not_yet" title="Posible salto brusco en los datos"> salto {r.step_year}</span>}</td>
         </tr>
       ))}
     </tbody>
@@ -326,7 +428,7 @@ function ScanView({ data, onOpen }: { data: ScanResponse; onOpen: (key: string) 
   )
 }
 
-function CompareView({ rows, variable }: { rows: RegionTrend[]; variable: string }) {
+function RegionsView({ rows, variable }: { rows: RegionTrend[]; variable: string }) {
   const ok = rows.filter((r) => r.result)
   const ups = ok.filter((r) => r.result!.significant && r.result!.direction === 'up').length
   const downs = ok.filter((r) => r.result!.significant && r.result!.direction === 'down').length
@@ -347,7 +449,7 @@ function CompareView({ rows, variable }: { rows: RegionTrend[]; variable: string
                 <td>{fmt(r.result.slope_per_decade)} {r.result.unit}</td>
                 <td>{fmtP(r.result.mk_p)}</td>
                 <td><span className={`badge ${r.result.verdict}`}>{VERDICT_LABEL[r.result.verdict]}</span>
-                  {r.result.step_year && <span className="badge weak"> salto {r.result.step_year}</span>}</td>
+                  {r.result.step_year && <span className="badge not_yet"> salto {r.result.step_year}</span>}</td>
               </tr>
             ) : (
               <tr key={r.region.id}><td>{r.region.label}</td><td colSpan={4} className="muted">{r.error}</td></tr>
