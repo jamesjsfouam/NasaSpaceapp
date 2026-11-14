@@ -102,9 +102,11 @@ Portada con el mundo entero de un vistazo.
   marrón/verde azulado en agua (más seco / más húmedo).
 - **Clic** en una celda: abre el veredicto completo de ese punto.
 - **Técnica:**
-  - `react-globe.gl` (three.js), cargado aparte para no pesar en la página principal;
-  - texturas NASA Blue Marble y Black Marble (GIBS, dominio público);
-  - la malla se precalcula (`make globe`) y se sirve como archivo, así que funciona sin conexión.
+  - MapLibre GL en proyección de globo, cargado aparte para no pesar en la página principal; la
+    malla es una sola capa GeoJSON dibujada en GPU (antes: 2.592 polígonos 3D con three.js, lento);
+  - imagen real en teselas según el zoom: NASA GIBS Blue Marble y VIIRS Black Marble (dominio
+    público) de lejos, Esri World Imagery de cerca; las teselas necesitan conexión;
+  - la malla se precalcula (`make globe`) y se sirve como archivo.
 - **Aviso del análisis:** "un globo 3D es vistoso pero no responde a las cuatro preguntas". Por
   eso es la puerta de entrada, y el núcleo sigue siendo el veredicto.
 

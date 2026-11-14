@@ -1,4 +1,4 @@
-/** Colores de la malla del globo (separado para no cargar three.js en el paquete principal). */
+/** Colores de la malla del globo (separado para no cargar MapLibre en el paquete principal). */
 
 // Paletas divergentes: el color dice hacia dónde va, no si es "bueno" o "malo".
 const PALETTES: Record<string, [string, string]> = {

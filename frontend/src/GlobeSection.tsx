@@ -68,8 +68,8 @@ export function GlobeSection({ onPick, focus }: {
               <label className="inline"><input type="checkbox" checked={night} onChange={(e) => setNight(e.target.checked)} /> Vista nocturna (luces de ciudades)</label>
               <p className="muted small">
                 Más opaco = tendencia significativa con el veredicto completo <b>y</b> tras el control de falsos
-                descubrimientos. Semitransparente = no alcanza. Arrastra para girar; clic en una celda para abrir su
-                veredicto. Fuente: NASA POWER, centro de cada celda de {data.cell_deg}°; imagen: NASA Blue/Black Marble.
+                descubrimientos. Semitransparente = no alcanza. Arrastra para girar y usa la rueda para acercarte; clic en una celda para abrir su
+                veredicto. Fuente: NASA POWER, centro de cada celda de {data.cell_deg}°; imagen: NASA GIBS (Blue/Black Marble) y Esri World Imagery.
               </p>
             </aside>
           )}

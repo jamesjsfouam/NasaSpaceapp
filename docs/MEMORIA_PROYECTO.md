@@ -68,7 +68,8 @@ entrega es una demo de 7 diapositivas o un video de 30 segundos.
    - veredicto completo + FDR de Benjamini-Hochberg (q = 0,10); opaca solo si es significativa
      y pasa el FDR;
    - clic en una celda para abrir su veredicto;
-   - `react-globe.gl` cargado aparte, texturas NASA Blue/Black Marble, malla precalculada en
+   - MapLibre GL en proyección de globo, cargado aparte; imagen en teselas de NASA GIBS (Blue/Black
+     Marble) y Esri World Imagery al acercarse; malla precalculada en
      `backend/app/data/globe.json` (`make globe`, unos 15 min, reanudable) y servida en
      `/api/globe`.
 1. **Preguntar:**

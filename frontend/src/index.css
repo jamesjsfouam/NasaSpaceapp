@@ -177,7 +177,9 @@ td { font-variant-numeric: tabular-nums; }
 .globe-stat { margin: 0 0 10px; color: var(--muted); max-width: 640px; line-height: 1.5; }
 .globe-stat strong.num { font-family: var(--mono); color: var(--accent); font-size: 1.15rem; }
 .globe-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: center; }
-.globe-wrap { width: 100%; cursor: grab; }
+.globe-wrap { width: 100%; height: clamp(360px, 62vw, 560px); border-radius: 12px; overflow: hidden; background: radial-gradient(circle at 50% 50%, #0b1a33, #02050c 70%); }
+.globe-popup .maplibregl-popup-content { background: none; padding: 0; box-shadow: none; }
+.globe-popup .maplibregl-popup-tip { display: none; }
 .globe-legend { background: rgba(5, 10, 20, 0.75); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .legend-title { font-weight: 600; font-size: 0.85rem; }
 .legend-bar { height: 10px; border-radius: 6px; }
