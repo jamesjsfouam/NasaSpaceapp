@@ -40,6 +40,8 @@ type Props = {
   years: number[]
   busy: boolean
   onLaunchStudio: () => void
+  cityAvailable?: boolean
+  onOpenCity?: () => void
 }
 
 // ---- iconos mínimos (sin librería) ---------------------------------------------------------
@@ -72,7 +74,7 @@ export function GlobeSection(props: Props) {
     question, onQuestionChange, askInfo, onAsk,
     concern, onConcernChange, placeType, onPlaceTypeChange,
     recommended, variable, onVariableChange,
-    start, onStartChange, years, busy, onLaunchStudio,
+    start, onStartChange, years, busy, onLaunchStudio, cityAvailable, onOpenCity,
   } = props
 
   const t = UI[lang].phase2
@@ -393,6 +395,11 @@ export function GlobeSection(props: Props) {
           <button type="button" className="btn primary" onClick={onLaunchStudio} disabled={busy}>
             {busy ? t.busyBtn : t.openStudioNow}
           </button>
+          {cityAvailable && onOpenCity && (
+            <button type="button" className="btn ghost" onClick={onOpenCity} disabled={busy}>
+              {es ? 'Ver la ciudad en 3D' : 'See the city in 3D'}
+            </button>
+          )}
           <button type="button" className="btn ghost" onClick={() => setWizardOpen((v) => !v)} aria-expanded={wizardOpen}>
             {es ? 'Ayúdame a elegir' : 'Help me choose'} <IChevron up={wizardOpen} />
           </button>

@@ -619,6 +619,7 @@ export const UI = {
         satellite: 'Satélite (1984–2025)',
         population: 'Población (ONU)',
         relate: 'Clima y Sociedad',
+        city3d: 'Ciudad 3D',
       },
       kpi: {
         what: '¿Qué cambia y dirección?',
@@ -761,6 +762,7 @@ export const UI = {
         satellite: 'Satellite (1984–2025)',
         population: 'UN Population',
         relate: 'Climate & Society',
+        city3d: 'City 3D',
       },
       kpi: {
         what: 'What & Direction',
@@ -1059,5 +1061,83 @@ export const TBL = {
       fileCorr: 'correlations',
       filePairs: 'pairs-by-year',
     },
+  },
+} as const
+
+/** Vista 3D de crecimiento urbano (escenario por celdas de 100 m). */
+export const CITY = {
+  es: {
+    title: 'Cómo se verá la ciudad',
+    badge: 'Escenario de crecimiento urbano, no una predicción',
+    intro: 'Cada bloque es una celda de unos 100 m. En azul marino lo construido hoy; en cian, lo que el modelo añade si la tendencia continúa. Arrastra para inclinar y girar la vista.',
+    loading: 'Cargando la ciudad…',
+    error: 'No se pudo cargar el escenario de esta ciudad.',
+    mapLabel: 'Vista 3D inclinada de la ciudad con las celdas construidas y proyectadas',
+    year: 'Año',
+    yearAria: 'Año del escenario',
+    play: 'Reproducir',
+    pause: 'Pausar',
+    onlyProjected: 'Solo lo proyectado',
+    legendBase: 'Construido en',
+    legendProjected: 'Escenario proyectado',
+    built: 'Superficie construida',
+    change: 'frente a',
+    urbanPop: 'Población urbana',
+    urbanPopUnit: 'millones',
+    summary: (year: number, km2: string, pct: string, base: number) =>
+      year === base
+        ? `En ${year}: ${km2} km² construidos en la zona estudiada.`
+        : `En ${year} el escenario añade hasta ${km2} km² construidos (${pct} frente a ${base}).`,
+    how: 'Cómo se calcula y qué tan fiable es',
+    methodTitle: 'Método',
+    method: 'Se parte de lo construido en 2023 según la cobertura del suelo de 10 m. Un modelo aprende, con las transiciones de 2017 a 2023, qué celdas libres tienden a urbanizarse (cercanía a lo construido, densidad vecina, pendiente del terreno). La superficie total sigue la población urbana de la ONU, y año a año se construyen las celdas más probables.',
+    reliabilityTitle: 'Fiabilidad',
+    reliability: (fit: string, test: string, auc: string, times: string, vsNear: string) =>
+      `Se ajustó con ${fit} y se probó en ${test}, un periodo que el modelo no había visto. Acierta dónde crece la ciudad ${times} veces más que elegir al azar y ${vsNear} veces más que construir siempre junto a lo ya construido (AUC ${auc}; 0,5 sería azar y 1 la perfección).`,
+    caveatsTitle: 'Límites',
+    caveats: [
+      'Es un escenario: prolonga la tendencia de 2017–2023 y no conoce planes urbanísticos ni decisiones políticas.',
+      'Con 10 m de resolución se distinguen manzanas, no edificios sueltos; las alturas son esquemáticas.',
+      'La zona estudiada es un cuadrado de unos 24 km alrededor del centro.',
+    ],
+    sources: 'Fuentes',
+    openFromMap: 'Ver la ciudad en 3D',
+  },
+  en: {
+    title: 'How the city will look',
+    badge: 'Urban growth scenario, not a forecast',
+    intro: 'Each block is a cell of about 100 m. Navy shows what is built today; cyan shows what the model adds if the trend continues. Drag to tilt and rotate the view.',
+    loading: 'Loading the city…',
+    error: 'Could not load the scenario for this city.',
+    mapLabel: 'Tilted 3D view of the city with built and projected cells',
+    year: 'Year',
+    yearAria: 'Scenario year',
+    play: 'Play',
+    pause: 'Pause',
+    onlyProjected: 'Projected only',
+    legendBase: 'Built in',
+    legendProjected: 'Projected scenario',
+    built: 'Built-up area',
+    change: 'vs',
+    urbanPop: 'Urban population',
+    urbanPopUnit: 'million',
+    summary: (year: number, km2: string, pct: string, base: number) =>
+      year === base
+        ? `In ${year}: ${km2} km² built up in the study area.`
+        : `In ${year} the scenario adds up to ${km2} km² built up (${pct} vs ${base}).`,
+    how: 'How it is calculated and how reliable it is',
+    methodTitle: 'Method',
+    method: 'We start from what was built in 2023 according to 10 m land cover. A model learns, from the 2017–2023 transitions, which free cells tend to urbanise (closeness to built-up land, neighbouring density, terrain slope). Total built area follows the UN urban population, and each year the most likely cells are built.',
+    reliabilityTitle: 'Reliability',
+    reliability: (fit: string, test: string, auc: string, times: string, vsNear: string) =>
+      `It was fitted on ${fit} and tested on ${test}, a period the model had not seen. It finds where the city grows ${times} times better than picking at random and ${vsNear} times better than always building next to existing built-up land (AUC ${auc}; 0.5 would be chance and 1 perfect).`,
+    caveatsTitle: 'Limits',
+    caveats: [
+      'It is a scenario: it extends the 2017–2023 trend and knows nothing of urban plans or policy decisions.',
+      'At 10 m resolution you can tell city blocks, not single buildings; heights are schematic.',
+      'The study area is a square of about 24 km around the centre.',
+    ],
+    sources: 'Sources',
+    openFromMap: 'See the city in 3D',
   },
 } as const

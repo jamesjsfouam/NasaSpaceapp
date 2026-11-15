@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   api, apiPost, DIRECTION_ARROW,
   type AskResponse, type Catalog, type EarthForecastResponse, type Forecast,
@@ -11,6 +11,7 @@ import { ExplainPanel } from './Explain'
 import { Wordmark } from './Logo'
 import { BrandPattern } from './BrandPattern'
 import { GlobeSection, type SecondSpot, type Spot } from './GlobeSection'
+import { useNearestCity } from './cities'
 import {
   certaintyInfo, CONCERNS_EN, fmtNum, fmtProb, formatForecastText, humanVerdictSummary,
   PLACE_TYPES_EN, TBL, translateWarning, tDemo, tRegion, tUnit, tVariable, UI,
@@ -22,10 +23,11 @@ import { TrendChart } from './TrendChart'
 import { AdvancedTests, ScenarioTable, TrendTables } from './TrendTables'
 import { DataTable, SectionHead, type Column } from './DataTable'
 
-type Tab = 'trend' | 'scan' | 'compare' | 'satellite' | 'population' | 'relate'
+type Tab = 'trend' | 'scan' | 'compare' | 'satellite' | 'population' | 'relate' | 'city3d'
 type Query = { variable: string; start: number; spot: Spot }
 
-const TAB_ORDER: Tab[] = ['trend', 'scan', 'compare', 'satellite', 'population', 'relate']
+const TAB_ORDER: Tab[] = ['trend', 'scan', 'compare', 'satellite', 'population', 'relate', 'city3d']
+const CityGrowth3D = lazy(() => import('./CityGrowth3D').then((m) => ({ default: m.CityGrowth3D })))
 
 const MONTE_CARLO_ROWS = [
   { phi: '0', naive: '4,8 %', naiveEn: '4.8%', verdict: '3,6 %', verdictEn: '3.6%', tagEs: 'Sin memoria', tagEn: 'No memory' },
@@ -289,6 +291,11 @@ export default function App() {
     : null
 
   const t = UI[lang]
+  const cityStudio = useNearestCity(query?.spot.lat, query?.spot.lon)
+  const cityPlanet = useNearestCity(spot.lat, spot.lon)
+  const visibleTabs = TAB_ORDER.filter((k) => k !== 'city3d' || !!cityStudio)
+  // si el lugar activo no tiene ciudad precalculada, la pestaña "Ciudad 3D" no se muestra ni se abre
+  const tabShown: Tab = tab === 'city3d' && cityStudio === null ? 'trend' : tab
   const activeVarRaw = cat?.variables.find((v) => v.key === (query?.variable ?? variable))
   const activeVar = activeVarRaw ? tVariable(activeVarRaw, lang) : null
 
@@ -514,6 +521,8 @@ export default function App() {
             years={years}
             busy={busy}
             onLaunchStudio={() => investigate({ variable, start, spot })}
+            cityAvailable={!!cityPlanet}
+            onOpenCity={() => investigate({ variable, start, spot }, 'city3d')}
           />
         )}
 
@@ -577,11 +586,11 @@ export default function App() {
 
             {/* Studio Tabs */}
             <div className="tabs" role="tablist">
-              {TAB_ORDER.map((k) => (
+              {visibleTabs.map((k) => (
                 <button
                   key={k}
                   role="tab"
-                  aria-selected={tab === k}
+                  aria-selected={tabShown === k}
                   onClick={() => openTab(k)}
                 >
                   {t.phase3.tabs[k]}
@@ -589,13 +598,13 @@ export default function App() {
               ))}
             </div>
 
-            {busy && !['relate', 'population', 'satellite', 'compare'].includes(tab) && (
+            {busy && !['relate', 'population', 'satellite', 'compare'].includes(tabShown) && (
               <p className="muted">
                 {lang === 'es' ? 'Procesando datos satelitales y pruebas estadísticas…' : 'Analyzing NASA records & statistical tests…'}
               </p>
             )}
 
-            {tab === 'trend' && trend && (
+            {tabShown === 'trend' && trend && (
               <TrendView
                 data={trend}
                 where={query.spot.label}
@@ -608,7 +617,7 @@ export default function App() {
               />
             )}
 
-            {tab === 'scan' && scan && regions && (
+            {tabShown === 'scan' && scan && regions && (
               <ScanAndRegionsView
                 scan={scan}
                 regions={regions}
@@ -620,7 +629,7 @@ export default function App() {
               />
             )}
 
-            {tab === 'compare' && (
+            {tabShown === 'compare' && (
               <ComparePlaces
                 variable={query.variable}
                 start={query.start}
@@ -636,7 +645,7 @@ export default function App() {
               />
             )}
 
-            {tab === 'satellite' && (
+            {tabShown === 'satellite' && (
               <SatelliteView
                 lat={query.spot.lat}
                 lon={query.spot.lon}
@@ -645,7 +654,7 @@ export default function App() {
               />
             )}
 
-            {tab === 'population' && (
+            {tabShown === 'population' && (
               <DemographyView
                 key={query.spot.iso3 ?? 'NIC'}
                 cat={cat}
@@ -655,7 +664,13 @@ export default function App() {
               />
             )}
 
-            {tab === 'relate' && relateQuery && (
+            {tabShown === 'city3d' && cityStudio && (
+              <Suspense fallback={<p className="muted">{lang === 'es' ? 'Cargando la ciudad…' : 'Loading the city…'}</p>}>
+                <CityGrowth3D entry={cityStudio} lang={lang} />
+              </Suspense>
+            )}
+
+            {tabShown === 'relate' && relateQuery && (
               <RelateView
                 key={`${query.variable}-${query.spot.lat}-${query.spot.lon}-${query.start}`}
                 cat={cat}
