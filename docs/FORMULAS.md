@@ -889,7 +889,7 @@ No hay un script de simulación en `backend/scripts/`. Las simulaciones están e
 
 # PARTE 4 · Modelo de crecimiento urbano «Ciudad 3D» (escenario por celdas)
 
-> **Qué es.** Un escenario —no una predicción— de cómo crece una ciudad: un autómata celular de celdas de 100 m cuyas probabilidades de transición se aprenden con una regresión logística sobre la cobertura del suelo 2017–2023, y cuya **cantidad** de suelo construido sigue la población urbana de la ONU, el ingreso por habitante y un empuje migratorio por clima. Código: `backend/scripts/build_city_growth.py` (genera `static-api/city/<ciudad>.json`) y `frontend/src/CityGrowth3D.tsx` (dibuja el resultado). **Estado:** es nuestro repositorio; está portándose a la web de José. Ejemplo numérico: Managua (`city/managua.json`).
+> **Qué es.** Un escenario —no una predicción— de cómo crece una ciudad: un autómata celular de celdas de 100 m cuyas probabilidades de transición se aprenden con una regresión logística sobre la cobertura del suelo 2017–2023, y cuya **cantidad** de suelo construido sigue la población urbana de la ONU, el ingreso por habitante y un empuje migratorio por clima. Código: `backend/scripts/build_city_growth.py` (genera `static-api/city/<ciudad>.json`) y `frontend/src/CityGrowth3D.tsx` (dibuja el resultado). **Estado:** desarrollado en nuestro repositorio y portado a la web de José como parche (rama local `ciudad-3d` sobre `d6d7a87`, pendiente de que José lo aplique). Ejemplo numérico: Managua (`city/managua.json`).
 
 ## Q1. Malla de 100 m (`grid_for`)
 
