@@ -186,7 +186,7 @@ export function Globe3D({
             slope: v[0],
             verdict: v[2],
             fdr: v[4],
-            color: cellColor(variable, v[0], scale, v[4] ? 0.86 : 0.1),
+            color: cellColor(variable, v[0], scale, v[4] ? 0.9 : 0.07),
           },
           geometry: { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
         }]
@@ -267,7 +267,7 @@ export function Globe3D({
           'fill-color': ['to-color', ['get', 'color']],
           'fill-antialias': false,
           // Smoothly reveal underlying satellite terrain as the user zooms into a region
-          'fill-opacity': ['interpolate', ['linear'], ['zoom'], 2, 1, 5, 0.92, 7, 0.6, 9, 0.38],
+          'fill-opacity': ['interpolate', ['linear'], ['zoom'], 1.5, 0.74, 4, 0.7, 7, 0.5, 9, 0.3],
         },
       })
       map.addLayer({
@@ -275,9 +275,9 @@ export function Globe3D({
         type: 'line',
         source: 'cells',
         paint: {
-          'line-color': 'rgba(28,16,30,0.14)',
+          'line-color': 'rgba(0,2,61,0.16)',
           'line-width': 0.5,
-          'line-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5.5, 0.7, 9, 0.3],
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0, 4, 0.3, 6, 0.6, 9, 0.3],
         },
       })
       map.addLayer({
@@ -285,7 +285,7 @@ export function Globe3D({
         type: 'line',
         source: 'cells',
         paint: {
-          'line-color': '#1c101e',
+          'line-color': '#00023d',
           'line-width': 2,
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0],
         },
