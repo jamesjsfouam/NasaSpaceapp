@@ -31,7 +31,8 @@ from rasterio.warp import Resampling, reproject, transform_bounds
 from rasterio.windows import from_bounds
 from scipy import ndimage, optimize, stats
 
-from app.services import power  # SAMPLES_DIR
+from app.catalog import VARIABLE_BY_KEY
+from app.services import power, trends  # SAMPLES_DIR, análisis de tendencias
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "static-api" / "city"
 STAC = "https://planetarycomputer.microsoft.com/api/stac/v1"
@@ -176,6 +177,115 @@ def urban_population(iso3: str):
     return {y: pop[y] * urb[y] / 100.0 for y in pop if y in urb}
 
 
+
+# ----------------------------------------------------------------------------------------------
+# Impulsores climáticos y sociales (escenario). Los supuestos son EXPLÍCITOS y ajustables.
+# ----------------------------------------------------------------------------------------------
+KAPPA = 0.5   # empuje migratorio máximo por clima (fracción de la población urbana por unidad de estrés·empleo agrario)
+GAMMA = 0.2   # elasticidad del suelo construido por persona respecto al ingreso por habitante
+HEAT_FULL_C = 2.0        # calentamiento que equivale a estrés térmico = 1
+DRY_FULL_SOIL = 0.10     # descenso de humedad de raíces (0–1) que equivale a sequía = 1
+DRY_FULL_PRECIP = 0.25   # descenso relativo de lluvia que equivale a sequía = 1
+EVIDENCE_WEIGHT = {"significant": 1.0, "not_yet": 0.5, "no_trend": 0.0}
+
+
+def pettitt(y: np.ndarray):
+    n = len(y)
+    sign = np.sign(y[None, :] - y[:, None])
+    u = np.array([sign[: k + 1, k + 1 :].sum() for k in range(n - 1)])
+    k = int(np.argmax(np.abs(u)))
+    p = min(1.0, 2 * np.exp(-6 * float(abs(u[k])) ** 2 / (n**3 + n**2)))
+    rss_step = float(((y[: k + 1] - y[: k + 1].mean()) ** 2).sum() + ((y[k + 1:] - y[k + 1:].mean()) ** 2).sum())
+    return k, float(p), rss_step
+
+
+def theil_sen_projection(years: list[int], values: list[float], to_year: int, log: bool = False,
+                         cap: tuple[float, float] | None = None):
+    x = np.array(years, dtype=float)
+    y = np.log(values) if log else np.array(values, dtype=float)
+    slope, icpt, *_ = stats.theilslopes(y, x)
+    if log and cap:
+        slope = float(np.clip(slope, np.log(1 + cap[0]), np.log(1 + cap[1])))
+        icpt = float(np.median(y - slope * x))
+    f = {yr: float(icpt + slope * yr) for yr in range(min(years), to_year + 1)}
+    return {yr: (float(np.exp(v)) if log else v) for yr, v in f.items()}, float(slope)
+
+
+def climate_drivers(lat: float, lon: float, last_year: int):
+    """Tendencias NASA POWER (1990–último año) de T2M, PRECTOTCORR y GWETROOT con el motor de DATEX.
+
+    Control de calidad: si Pettitt detecta un salto brusco (p < 0,05), la serie anterior al salto no
+    se mezcla con la posterior (posible discontinuidad del reanálisis): se usa solo la tendencia
+    DESPUÉS del salto, siempre que queden al menos MIN_YEARS años."""
+    monthly = power._sample_for(lat, lon)
+    if monthly is None:
+        return None
+    out = {}
+    for key in ("T2M", "PRECTOTCORR", "GWETROOT"):
+        v = VARIABLE_BY_KEY[key]
+        full = trends.analyze(v, monthly[key], 1990, last_year, include_series=True)
+        years = np.array([p.year for p in full.series.annual], dtype=float)
+        vals = np.array([p.mean for p in full.series.annual], dtype=float)
+        k, pp, _ = pettitt(vals)
+        break_year = int(years[k + 1])
+        use, start = full, 1990
+        broken = bool(pp < 0.05)
+        if broken:
+            try:
+                use = trends.analyze(v, monthly[key], break_year, last_year, include_series=False)
+                start = break_year
+            except Exception:  # noqa: BLE001  (quedan menos de MIN_YEARS años tras el salto)
+                use = None
+        w = EVIDENCE_WEIGHT[use.verdict] if use is not None else 0.0
+        out[key] = {
+            "label": v.label, "unit": full.unit,
+            "full_period": {"start": 1990, "verdict": full.verdict, "slope_per_decade": round(full.slope_per_decade, 4),
+                            "mk_p": float(full.mk_p)},
+            "pettitt_p": round(pp, 4), "break_year": break_year, "break_detected": broken,
+            "used_period_start": start,
+            "verdict": use.verdict if use is not None else "no_trend",
+            "slope_per_decade": round(use.slope_per_decade, 4) if use is not None else 0.0,
+            "mk_p": float(use.mk_p) if use is not None else 1.0,
+            "weight": w, "mean_last_10y": float(vals[-10:].mean()),
+        }
+    return out
+
+
+def social_drivers(iso3: str, base_year: int, to_year: int):
+    wb = json.loads((power.SAMPLES_DIR / f"worldbank_{iso3}.json").read_text())["indicators"]
+    gdp = {int(y): v for y, v in wb["NY.GDP.PCAP.KD"].items() if v}
+    gy = [y for y in sorted(gdp) if y >= 2005]
+    G, g_slope = theil_sen_projection(gy, [gdp[y] for y in gy], to_year, log=True, cap=(0.0, 0.035))
+    agr = {int(y): v for y, v in wb["SL.AGR.EMPL.ZS"].items() if v}
+    ay = [y for y in sorted(agr) if y >= 2005]
+    A_, a_slope = theil_sen_projection(ay, [agr[y] / 100 for y in ay], to_year, log=True, cap=(-0.05, 0.0))
+    return {"gdp_pc": G, "gdp_growth": float(np.exp(g_slope) - 1), "agr_share": A_, "agr_decline": float(np.exp(a_slope) - 1),
+            "gdp_last_obs": max(gdp), "agr_last_obs": max(agr)}
+
+
+def stress_index(clim: dict, year: int, base_year: int):
+    """Estrés climático S en [0,1] a partir de las tendencias ponderadas por evidencia (escenario lineal)."""
+    dt = year - base_year
+    t, pr, gw = clim["T2M"], clim["PRECTOTCORR"], clim["GWETROOT"]
+    d_temp = t["weight"] * t["slope_per_decade"] / 10 * dt
+    d_soil = gw["weight"] * gw["slope_per_decade"] / 10 * dt
+    d_prec = pr["weight"] * pr["slope_per_decade"] / 10 * dt / max(pr["mean_last_10y"], 1e-6)
+    heat = float(np.clip(max(0.0, d_temp) / HEAT_FULL_C, 0, 1))
+    dry = float(np.clip(0.5 * max(0.0, -d_soil) / DRY_FULL_SOIL + 0.5 * max(0.0, -d_prec) / DRY_FULL_PRECIP, 0, 1))
+    return float(np.clip(0.5 * heat + 0.5 * dry, 0, 1)), heat, dry, d_temp, d_soil, d_prec
+
+
+def target_area(a0: float, U: dict, soc: dict | None, clim: dict | None, year: int, base_year: int,
+                beta: float, kappa: float = KAPPA, gamma: float = GAMMA, integrated: bool = True) -> float:
+    ratio = U[year] / U[base_year]
+    if not integrated or soc is None:
+        return a0 * ratio ** beta
+    s = stress_index(clim, year, base_year)[0] if clim else 0.0
+    push = 1 + kappa * s * soc["agr_share"][year]
+    income = (soc["gdp_pc"][year] / soc["gdp_pc"][base_year]) ** gamma
+    return a0 * (ratio * push) ** beta * income
+
+
 def b64(a: np.ndarray) -> str:
     return base64.b64encode(np.ascontiguousarray(a.astype("uint8")).tobytes()).decode()
 
@@ -247,27 +357,74 @@ def build(city_id: str) -> None:
     print(f"  área construida {area[years[0]]:.1f}→{area[years[-1]]:.1f} km²; beta ajustado {beta:.2f} (usado {beta_c:.2f})",
           flush=True)
 
-    # ---- reparto año a año
-    cur = B[BASE_YEAR].copy()
+    # ---- impulsores climáticos y sociales
+    horizon = PROJECTION_YEARS[-1]
+    soc = social_drivers(c["iso"], BASE_YEAR, horizon)
+    try:
+        clim = climate_drivers(c["lat"], c["lon"], power.last_full_year())
+    except Exception as exc:  # noqa: BLE001
+        print(f"  (sin impulsores climáticos: {type(exc).__name__}: {exc})", flush=True)
+        clim = None
+    if clim:
+        for k_, v_ in clim.items():
+            fp = v_["full_period"]
+            print(f"  clima {k_}: 1990– {fp['verdict']} {fp['slope_per_decade']:+.3f}/déc.; Pettitt p={v_['pettitt_p']} "
+                  f"(salto {v_['break_year']}, detectado={v_['break_detected']}); usado desde {v_['used_period_start']}: "
+                  f"{v_['verdict']} {v_['slope_per_decade']:+.3f} {v_['unit']}/déc., peso={v_['weight']}", flush=True)
+    print(f"  sociedad: PIB/hab. crecimiento {soc['gdp_growth'] * 100:+.2f} %/año, "
+          f"empleo agrario {soc['agr_decline'] * 100:+.2f} %/año", flush=True)
+
+    # ---- reparto año a año (dos escenarios con el mismo autómata)
     free_water = W >= 0.5
-    added = np.zeros((n, n), dtype="uint8")
-    out_area = {BASE_YEAR: area[BASE_YEAR]}
-    for k, yr in enumerate(PROJECTION_YEARS, start=1):
-        target = area[BASE_YEAR] * (U[yr] / U[BASE_YEAR]) ** beta_c
-        need = int(round((target - cur.sum() * (CELL_M / 1000) ** 2) / (CELL_M / 1000) ** 2))
-        if need > 0:
-            X = features(cur, W, slope)
-            sc = score(wf, muf, sdf, X)
-            free = (~cur) & (~free_water)
-            pick = allocate(sc, free, need)
-            flat = cur.ravel()
-            flat[pick] = True
-            cur = flat.reshape(n, n)
-            ad = added.ravel()
-            ad[pick] = k
-            added = ad.reshape(n, n)
-        out_area[yr] = float(cur.sum()) * (CELL_M / 1000) ** 2
-        print(f"  {yr}: objetivo {target:.1f} km², construido {out_area[yr]:.1f} km² (+{need} celdas)", flush=True)
+    new_density_cells = (CELL_M / 1000) ** 2
+
+    def run_scenario(integrated: bool):
+        cur = B[BASE_YEAR].copy()
+        added = np.zeros((n, n), dtype="uint8")
+        out_area = {BASE_YEAR: area[BASE_YEAR]}
+        for k, yr in enumerate(PROJECTION_YEARS, start=1):
+            target = target_area(area[BASE_YEAR], U, soc, clim, yr, BASE_YEAR, beta_c, integrated=integrated)
+            need = int(round((target - cur.sum() * new_density_cells) / new_density_cells))
+            if need > 0:
+                sc = score(wf, muf, sdf, features(cur, W, slope))
+                pick = allocate(sc, (~cur) & (~free_water), need)
+                flat = cur.ravel()
+                flat[pick] = True
+                cur = flat.reshape(n, n)
+                ad = added.ravel()
+                ad[pick] = k
+                added = ad.reshape(n, n)
+            out_area[yr] = float(cur.sum()) * new_density_cells
+            print(f"  [{'integrado' if integrated else 'solo población'}] {yr}: objetivo {target:.1f} km², "
+                  f"construido {out_area[yr]:.1f} km² (+{need} celdas)", flush=True)
+        return added, out_area
+
+    added, out_area = run_scenario(True)
+    added_base, out_area_base = run_scenario(False)
+
+    drivers_rows = {}
+    for yr in [BASE_YEAR] + PROJECTION_YEARS:
+        s_, heat, dry, d_t, d_s, d_p = stress_index(clim, yr, BASE_YEAR) if clim else (0, 0, 0, 0, 0, 0)
+        push = 1 + KAPPA * s_ * soc["agr_share"][yr]
+        drivers_rows[str(yr)] = {
+            "urban_population_million": round(U[yr] / 1e6, 3),
+            "gdp_per_capita_usd": round(soc["gdp_pc"][yr], 0),
+            "agricultural_employment_share": round(soc["agr_share"][yr], 3),
+            "delta_temperature_c": round(d_t, 3), "delta_soil_wetness": round(d_s, 4),
+            "delta_rain_fraction": round(d_p, 4),
+            "heat_stress": round(heat, 3), "drought_stress": round(dry, 3), "climate_stress": round(s_, 3),
+            "migration_push_multiplier": round(push, 4),
+            "built_km2_integrated": round(out_area[yr], 1), "built_km2_population_only": round(out_area_base[yr], 1),
+        }
+    ratio50 = U[horizon] / U[BASE_YEAR]
+    income50 = (soc["gdp_pc"][horizon] / soc["gdp_pc"][BASE_YEAR]) ** GAMMA
+    sensitivity = {
+        f"stress_2050={s_end},kappa={kp}": round(float(area[BASE_YEAR] * (ratio50 * (1 + kp * s_end * soc["agr_share"][horizon])) ** beta_c * income50), 1)
+        for s_end in (0.0, 0.5, 1.0) for kp in (0.25, 0.5, 1.0)
+    }
+    sensitivity.update({f"gamma={gm},stress_2050=0": round(float(area[BASE_YEAR] * ratio50 ** beta_c * (soc["gdp_pc"][horizon] / soc["gdp_pc"][BASE_YEAR]) ** gm), 1)
+                        for gm in (0.0, 0.2, 0.4)})
+    print("  sensibilidad 2050 (km²):", sensitivity, flush=True)
 
     dens = np.clip(np.round(built_f[BASE_YEAR] * 100), 0, 100)
     dens[~B[BASE_YEAR]] = 0
@@ -280,12 +437,27 @@ def build(city_id: str) -> None:
         "generated": date.today().isoformat(),
         "grid": {"cols": n, "rows": n, "cell_m": CELL_M, "west": w, "south": s, "east": e, "north": nn},
         "base_year": BASE_YEAR, "years": [BASE_YEAR] + PROJECTION_YEARS,
-        "density": b64(dens), "added": b64(added), "water": b64((W >= 0.5)),
+        "density": b64(dens), "added": b64(added), "added_base": b64(added_base), "water": b64((W >= 0.5)),
         "new_cell_density": round(new_density, 2),
         "stats": {
             "built_km2": {str(k): round(v, 1) for k, v in {**{y: area[y] for y in years}, **out_area}.items()},
+            "built_km2_population_only": {str(k): round(v, 1) for k, v in out_area_base.items()},
             "urban_population_million": {str(y): round(U[y] / 1e6, 3) for y in sorted(U) if y in set(years + PROJECTION_YEARS)},
             "beta": round(beta_c, 2), "beta_fitted": round(beta, 2),
+        },
+        "scenarios": {
+            "default": "integrated",
+            "integrated": "Urban population (UN) × climate migration push × income effect",
+            "population_only": "Urban population (UN) only",
+        },
+        "drivers": {
+            "table": drivers_rows,
+            "climate": clim,
+            "social": {"gdp_growth_per_year": round(soc["gdp_growth"], 4), "agr_employment_change_per_year": round(soc["agr_decline"], 4),
+                       "gdp_last_observed": soc["gdp_last_obs"], "agr_last_observed": soc["agr_last_obs"]},
+            "assumptions": {"kappa": KAPPA, "gamma": GAMMA, "heat_full_c": HEAT_FULL_C, "dry_full_soil": DRY_FULL_SOIL,
+                            "dry_full_precip": DRY_FULL_PRECIP, "evidence_weight": EVIDENCE_WEIGHT},
+            "sensitivity_built_km2_2050": sensitivity,
         },
         "validation": {
             "fit": f"{y0}→{y1}", "test": f"{y1}→{y2}", "new_cells": n_new,
@@ -294,9 +466,12 @@ def build(city_id: str) -> None:
         },
         "coefficients": coefs,
         "sources": ["Impact Observatory / Esri 10 m Land Use/Land Cover (annual), Microsoft Planetary Computer",
-                    "Copernicus DEM GLO-30 (slope)", "UN World Population Prospects via Our World in Data"],
-        "method": "Cellular automaton with logistic transition probabilities; built area follows UN urban population^beta.",
-        "caveats": ["Scenario, not a forecast: it extends the 2017–2023 trend and ignores urban planning.",
+                    "Copernicus DEM GLO-30 (slope)", "UN World Population Prospects via Our World in Data",
+                    "NASA POWER (MERRA-2) trends via DATEX engine", "World Bank Open Data (GDP per capita, agricultural employment)"],
+        "method": "Cellular automaton with logistic transition probabilities; built area follows (UN urban population x climate push)^beta x (GDP per capita)^gamma.",
+        "caveats": ["Scenario, not a forecast: it extends 2017–2023 land-cover trends and ignores urban planning.",
+                    "Climate and income effects use explicit scenario assumptions (kappa, gamma), not fitted coefficients.",
+                    "A climate trend only counts if it is not suspected to be a data discontinuity (Pettitt) and is weighted by its evidence level.",
                     "10 m land cover resolves city blocks, not individual buildings; heights are schematic."],
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
