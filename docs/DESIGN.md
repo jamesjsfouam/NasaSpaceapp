@@ -1,7 +1,7 @@
 # DATEX · Design System & UX Architecture ("Orbital Observatory")
 
 > **Project:** DATEX — Earth System Trend Detective (NASA Space Apps Challenge 2026)  
-> **Team:** Laboratorio Boreal · **Goal:** Radical clarity for students, rigorous statistical honesty for researchers.
+> **Team:** Boreal Labs · **Goal:** Radical clarity for students, rigorous statistical honesty for researchers.
 
 ---
 

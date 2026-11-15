@@ -12,7 +12,7 @@
   <img src="docs/capturas/globo_temperatura.png" alt="Globo 3D de DATEX: tendencia de temperatura 1990–2025 con control FDR" width="48%" />
 </p>
 
-**Equipo:** Laboratorio Boreal · **Universidad Americana (UAM) · Nicaragua** · **Reto:** *Be an Earth System Trend Detective* (NASA Space Apps Challenge 2026)
+**Equipo:** Boreal Labs · **Universidad Americana (UAM) · Nicaragua** · **Reto:** *Be an Earth System Trend Detective* (NASA Space Apps Challenge 2026)
 
 **Revisión:** 14 de noviembre de 2026 · **Corte técnico:** Backend `0.2.0` (FastAPI + Python ≥ 3.11) + Frontend React 19 / TypeScript / MapLibre GL 5, arquitectura progresiva en **3 fases**, **globo 3D unificado** con transición orbital-a-terreno, **modo dual Estudiante / Investigador**, interfaz bilingüe **ES / EN** y **72 pruebas automatizadas** aprobadas.
 
@@ -61,7 +61,7 @@ Este README constituye la especificación técnica y científica integral de DAT
 
 ## 0. Executive Summary (English · NASA Space Apps 2026)
 
-**DATEX** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) scientific web application built by **Laboratorio Boreal (UAM Nicaragua)** to investigate climate and land-surface change **anywhere on Earth**.
+**DATEX** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) scientific web application built by **Boreal Labs (UAM Nicaragua)** to investigate climate and land-surface change **anywhere on Earth**.
 
 ### Core Innovation
 1. **3-Phase Progressive Experience (`01 · Briefing` → `02 · Unified 3D Planet` → `03 · Verdict Studio`):** Replaces cluttered single-page dashboards with a guided scientific narrative backed by [docs/DESIGN.md](docs/DESIGN.md).
@@ -883,7 +883,7 @@ Secuencia recomendada previa a la fecha límite oficial en Space Apps (detalles 
 | [SUBMISSION_EN.md](docs/SUBMISSION_EN.md) | EN | Pitch oficial para Space Apps, problema/solución, tabla Monte Carlo, fuentes NASA, declaración de IA y guion de demo |
 | [RETO.md](docs/RETO.md) | ES | Desglose del reto, formulación del motor estadístico, tabla de validación y límites conocidos a exponer ante el jurado |
 | [MEMORIA_PROYECTO.md](docs/MEMORIA_PROYECTO.md) | ES | Bitácora técnica completa: decisiones arquitectónicas, hallazgos empíricos (1990–2025) y reglas del repositorio |
-| [GUIA_ESTUDIO.md](docs/GUIA_ESTUDIO.md) | ES | Material de preparación del equipo Laboratorio Boreal (conceptos de sistema Tierra, estadística paso a paso y ejercicios) |
+| [GUIA_ESTUDIO.md](docs/GUIA_ESTUDIO.md) | ES | Material de preparación del equipo Boreal Labs (conceptos de sistema Tierra, estadística paso a paso y ejercicios) |
 | [OFERTAS.md](docs/OFERTAS.md) | ES | Uso de ofertas globales de Space Apps (Google Cloud / Firebase, Meteomatics, Microsoft Planetary Computer, GoDaddy) |
 | [ENTREGA.md](docs/ENTREGA.md) | ES | Lista de verificación oficial previa al envío final en el portal del hackathon |
 | [Earth_System_Trend_Detective_analisis_y_solucion.pdf](docs/Earth_System_Trend_Detective_analisis_y_solucion.pdf) | ES | Análisis fundacional del equipo proponiendo el concepto *Verdict* y sus tres diferenciadores |
@@ -896,6 +896,6 @@ Secuencia recomendada previa a la fecha límite oficial en Space Apps (detalles 
 
 - **Estándar de calidad antes de hacer push:** ejecutar `make lint` (`ruff` + `oxlint`), `make build` (`tsc -b && vite build`) y `make test` (`pytest -q`, exigiendo los `72` casos en verde). Toda nueva métrica añadida en `trends.py`, `forecast.py` o `relate.py` debe incluir pruebas sintéticas con simulación de falsos positivos.
 - **Commits y rama principal:** commits concisos en español sobre la rama `main`; nunca subir archivos `.env`, credenciales JSON ni llaves privadas al historial de Git.
-- **Licencia:** distribuido bajo licencia abierta [MIT](LICENSE) (`© 2026 Laboratorio Boreal`).
+- **Licencia:** distribuido bajo licencia abierta [MIT](LICENSE) (`© 2026 Boreal Labs`).
 
 [↑ Volver al índice](#indice) · [↑ Volver arriba](#inicio)

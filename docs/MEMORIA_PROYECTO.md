@@ -7,7 +7,7 @@
 ## 1. Identidad
 
 - **Evento:** NASA Space Apps Challenge 2026 (14–15 de noviembre).
-- **Equipo:** Laboratorio Boreal, 6 integrantes de Nicaragua.
+- **Equipo:** Boreal Labs, 6 integrantes de Nicaragua.
 - **Reto:** *Be an Earth System Trend Detective* (Ciencias de la Tierra y software, nivel avanzado).
 - **Repositorio:** https://github.com/jamesjsfouam/NasaSpaceapp (público, rama `main`). El
   repositorio anterior, `jamesjsfouam/Nasa-Spaceappschallenge`, está abandonado.

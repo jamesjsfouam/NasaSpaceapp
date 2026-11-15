@@ -1,6 +1,6 @@
 # Guía de estudio · Detective de tendencias del sistema Tierra
 
-Preparación del equipo Laboratorio Boreal para el reto *Be an Earth System Trend Detective*
+Preparación del equipo Boreal Labs para el reto *Be an Earth System Trend Detective*
 (NASA Space Apps 2026). La guía tiene cinco partes:
 
 1. [El tema: sistema Tierra, variables y datos](#1-el-tema)

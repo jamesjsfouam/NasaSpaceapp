@@ -543,7 +543,7 @@ export const UI = {
       studio: { num: '03', label: 'Paneles Estadísticos' },
     },
     phase1: {
-      kicker: 'NASA Space Apps Challenge 2026 · Equipo Laboratorio Boreal',
+      kicker: 'NASA Space Apps Challenge 2026 · Equipo Boreal Labs',
       headline: 'Investiga si el clima de cualquier lugar del mundo está cambiando — sin caer en falsas alarmas.',
       sub: 'DATEX transforma más de 40 años de satélites de la NASA en tres pasos simples: comprende el reto, haz zoom a cualquier punto sobre nuestro globo 3D unificado y obtén un veredicto estadístico honesto.',
       ctaPlanet: 'Explorar el Planeta 3D →',
@@ -685,7 +685,7 @@ export const UI = {
       studio: { num: '03', label: 'Analytics Studio' },
     },
     phase1: {
-      kicker: 'NASA Space Apps Challenge 2026 · Team Laboratorio Boreal',
+      kicker: 'NASA Space Apps Challenge 2026 · Team Boreal Labs',
       headline: 'Investigate if Earth is really changing anywhere on the planet — without falling for false alarms.',
       sub: 'DATEX turns 40+ years of NASA satellite & reanalysis records into three intuitive phases: learn how real trends differ from noise, zoom directly into any zone on our unified 3D globe, and explore an honest statistical verdict.',
       ctaPlanet: 'Explore 3D Planet →',
