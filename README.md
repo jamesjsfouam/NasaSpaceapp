@@ -483,6 +483,7 @@ Pruebas reproducibles en [backend/tests/test_trends.py](backend/tests/test_trend
 | **NASA POWER** (`power.larc.nasa.gov`) | Series mensuales `AG` desde 1981 en cualquier coordenada | Ninguna | 7 regiones (`managua`, `corredor_seco`, `bluefields`, `amazonas`, `sahara`, `artico`, `cdmx`) |
 | **NASA GIBS** (`gibs.earthdata.nasa.gov`) | Teselas `BlueMarble_NextGeneration` y `VIIRS_Black_Marble` | Ninguna | Requiere red para teselas base del globo; la malla GeoJSON es local |
 | **Esri World Imagery** (`server.arcgisonline.com`) | Terreno satelital de alta resolución al hacer zoom local en el globo | Ninguna | Requiere red al hacer zoom regional (`zoom > 3.5`) |
+| **OpenStreetMap** (`tile.openstreetmap.org`) y **Nominatim** (`nominatim.openstreetmap.org`) | Fondo "Calles" del mapa y, solo si el usuario pulsa "Usar mi ubicación", el nombre del lugar (reverse geocoding) | Ninguna | Requiere red; se respeta la política de uso razonable de OSM (sin carga masiva) |
 | **Microsoft Planetary Computer** (`planetarycomputer.microsoft.com`) | Escenas Landsat 5/7/8/9 (1984+) y Sentinel-2 L2A (2016+); `io-lulc-annual-v02` (2017–2023) | Ninguna (`PC_SDK_SUBSCRIPTION_KEY` opcional) | Consulta en vivo; maneja errores elegantemente en UI |
 | **ONU via Our World in Data** (`ourworldindata.org`) | 7 indicadores demográficos y proyección oficial de variante media a 2100 | Ninguna | 4 países (`NIC`, `BRA`, `DZA`, `MEX`) |
 | **Banco Mundial** (`api.worldbank.org/v2`) | 10 indicadores agrícolas, económicos y sociales | Ninguna | 4 países (`NIC`, `BRA`, `DZA`, `MEX`) |
@@ -501,6 +502,8 @@ Pruebas reproducibles en [backend/tests/test_trends.py](backend/tests/test_trend
 Componentes reales de software, dependencias verificadas, contrato de endpoints, estado comprobable del repositorio e instrucciones de ejecución.
 
 <a id="arquitectura"></a>
+
+> **Mapas de Google (opcional, no activado).** El mapa usa MapLibre con teselas abiertas (Esri, NASA GIBS, OSM). Para añadir Google Maps haría falta una clave de la *Map Tiles API* en una variable de entorno `VITE_GOOGLE_MAPS_API_KEY` (se expone en el navegador: restringirla por dominio en Google Cloud) y crear una sesión de teselas 2D; el código no la lee todavía.
 
 ## 12. Arquitectura de componentes del sistema
 
