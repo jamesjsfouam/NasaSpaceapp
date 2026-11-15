@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { COLOR } from './theme'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, DIRECTION_ARROW, type Place, type Region, type TrendResponse } from './api'
+import { DataTable, SectionHead, type Column } from './DataTable'
 import {
-  certaintyInfo, fmtNum, tRegion, tUnit, verdictLabel, type Lang,
+  certaintyInfo, fmtNum, fmtProb, TBL, tRegion, tUnit, verdictLabel, type Lang,
 } from './i18n'
+import { commonYears, diffs, pearson, pFromPearson, pFromZ, seFromCI } from './stats'
 
 type Spot = { lat: number; lon: number; label: string }
 
@@ -108,6 +110,76 @@ export function ComparePlaces({
         chartNote: 'Standardized annual averages (z-scores around each location mean) so both trajectories can be compared cleanly side by side.',
       }
 
+  // ---- tablas numéricas (todo se calcula en el cliente con lo que ya devuelve la API)
+  const tb = TBL[lang]
+  const tc = tb.compare
+  type MRow = { id: string; measure: string; a: string; b: string; ra: string | number | null; rb: string | number | null }
+  const measureRows: MRow[] = pair
+    ? (() => {
+        const [ta, tbb] = [pair[0].result, pair[1].result]
+        const sg = (x: number) => `${x > 0 ? '+' : ''}${fmtNum(x, lang)}`
+        const ci = (t: typeof ta) => `${fmtNum(t.ci_low_per_decade, lang)} ${tb.to} ${fmtNum(t.ci_high_per_decade, lang)}`
+        const pc = (t: typeof ta) => (t.percent_change === null ? tb.na : `${t.percent_change > 0 ? '+' : ''}${fmtNum(t.percent_change, lang, 3)} %`)
+        const cert = (t: typeof ta) => certaintyInfo(t.mk_p, t.verdict, lang).headline
+        const u = (t: typeof ta) => tUnit(t.unit, lang)
+        const mk = (id: string, measure: string, f: (t: typeof ta) => string, raw?: (t: typeof ta) => string | number | null): MRow => ({
+          id, measure, a: f(ta), b: f(tbb), ra: raw ? raw(ta) : f(ta), rb: raw ? raw(tbb) : f(tbb),
+        })
+        return [
+          mk('slope', tc.slope, (t) => `${sg(t.slope_per_decade)} ${u(t)}`, (t) => t.slope_per_decade),
+          mk('ci', tc.ci, ci),
+          mk('p', tc.p, (t) => fmtProb(t.mk_p, lang), (t) => t.mk_p),
+          mk('total', tc.total, (t) => `${sg(t.total_change)} ${u(t)}`, (t) => t.total_change),
+          mk('pct', tc.pct, pc, (t) => t.percent_change),
+          mk('years', tc.years, (t) => String(t.n_years), (t) => t.n_years),
+          mk('cert', tc.cert, cert),
+          mk('verdict', tc.verdict, (t) => verdictLabel(t.verdict, lang)),
+        ]
+      })()
+    : []
+  const measureCols: Column<MRow>[] = [
+    { id: 'm', header: tc.cols[0], cell: (r) => r.measure, csv: (r) => r.measure },
+    { id: 'a', header: a.label, align: 'right', cell: (r) => r.a, csv: (r) => r.ra },
+    { id: 'b', header: b?.label ?? tc.cols[2], align: 'right', cell: (r) => r.b, csv: (r) => r.rb },
+  ]
+
+  type RRow = { id: string; measure: string; value: string; raw: number | null; p: string; praw: number | null; read: string }
+  const relRows: RRow[] = pair
+    ? (() => {
+        const [ta, tbb] = [pair[0].result, pair[1].result]
+        const out: RRow[] = []
+        const sA = seFromCI(ta.ci_low_per_decade, ta.ci_high_per_decade)
+        const sB = seFromCI(tbb.ci_low_per_decade, tbb.ci_high_per_decade)
+        const dSlope = ta.slope_per_decade - tbb.slope_per_decade
+        const se = Math.hypot(sA, sB)
+        const pDiff = se > 0 ? pFromZ(dSlope / se) : NaN
+        out.push({
+          id: 'diff', measure: tc.diff, value: `${dSlope > 0 ? '+' : ''}${fmtNum(dSlope, lang)} ${tUnit(ta.unit, lang)}`,
+          raw: dSlope, p: Number.isFinite(pDiff) ? fmtProb(pDiff, lang) : tb.na, praw: Number.isFinite(pDiff) ? pDiff : null, read: tc.diffRead,
+        })
+        const cy = commonYears(ta.series?.annual ?? [], tbb.series?.annual ?? [])
+        const rRaw = pearson(cy.xs, cy.ys)
+        const pRaw = pFromPearson(rRaw, cy.xs.length)
+        const dx = diffs(cy.xs)
+        const dy = diffs(cy.ys)
+        const rD = pearson(dx, dy)
+        const pD = pFromPearson(rD, dx.length)
+        const rowOf = (id: string, measure: string, r: number, p: number, n: number, read: string): RRow => ({
+          id, measure, value: Number.isFinite(r) ? `r = ${fmtNum(r, lang, 2)} (n = ${n} ${tc.common})` : tb.na,
+          raw: Number.isFinite(r) ? r : null, p: Number.isFinite(p) ? fmtProb(p, lang) : tb.na, praw: Number.isFinite(p) ? p : null, read,
+        })
+        out.push(rowOf('raw', tc.pearsonRaw, rRaw, pRaw, cy.xs.length, tc.rawRead))
+        out.push(rowOf('d', tc.pearsonDiff, rD, pD, dx.length, tc.diffsRead))
+        return out
+      })()
+    : []
+  const relCols: Column<RRow>[] = [
+    { id: 'm', header: tc.relCols[0], cell: (r) => r.measure, csv: (r) => r.measure },
+    { id: 'v', header: tc.relCols[1], align: 'right', cell: (r) => r.value, csv: (r) => r.raw },
+    { id: 'p', header: tc.relCols[2], align: 'right', cell: (r) => r.p, csv: (r) => r.praw },
+    { id: 'r', header: tc.relCols[3], cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
+  ]
+
   return (
     <div className="studio-block">
       <div className="studio-intro-row">
@@ -203,6 +275,22 @@ export function ComparePlaces({
             </ResponsiveContainer>
             <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.chartNote}</p>
           </div>
+
+          <section className="stat-stack" aria-label={tc.title}>
+            <SectionHead title={tc.title} />
+            <DataTable
+              columns={measureCols} rows={measureRows} rowKey={(r) => r.id} ariaLabel={tc.title}
+              csvName={`${tc.file}-${variable}`} csvLabel={tb.csv}
+            />
+            <div className="stat-sub">
+              <h4 className="stat-sub-title">{tc.relTitle}</h4>
+              <DataTable
+                columns={relCols} rows={relRows} rowKey={(r) => r.id} ariaLabel={tc.relTitle}
+                csvName={`${tc.file}-relacion-${variable}`} csvLabel={tb.csv}
+              />
+              <p className="table-note">{tc.note}</p>
+            </div>
+          </section>
         </>
       )}
     </div>

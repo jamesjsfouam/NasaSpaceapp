@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type LandCoverResponse, type SatelliteImage } from './api'
 import { ExplainPanel } from './Explain'
-import { fmtNum, formatForecastText, LANDCOVER_LABEL, translateWarning, type Lang } from './i18n'
+import { DataTable, SectionHead, type Column } from './DataTable'
+import { fmtNum, formatForecastText, LANDCOVER_LABEL, TBL, translateWarning, type Lang } from './i18n'
 import { SeriesChart } from './SeriesChart'
 import { LANDCOVER_COLOR as CLASS_COLORS } from './theme'
 
@@ -90,6 +91,37 @@ export function SatelliteView({
         builtLabel: 'Built-up area',
       }
 
+  // ---- tablas: cobertura (primer vs último año) y escenas usadas
+  const tb = TBL[lang]
+  const ts = tb.sat
+  type CRow = { id: string; name: string; first: number; last: number; dpp: number; dkm2: number }
+  const firstY = lc?.years[0]
+  const lastY = lc?.years[lc.years.length - 1]
+  const coverRows: CRow[] = lc && firstY && lastY
+    ? [...new Set([...Object.keys(firstY.shares), ...Object.keys(lastY.shares)])]
+        .map((k) => {
+          const f = firstY.shares[k] ?? 0
+          const l = lastY.shares[k] ?? 0
+          return { id: k, name: LANDCOVER_LABEL[lang][k] ?? k, first: f, last: l, dpp: l - f, dkm2: ((l - f) / 100) * lc.area_km2 }
+        })
+        .filter((r) => r.first >= 0.01 || r.last >= 0.01)
+        .sort((x, y) => Math.abs(y.dpp) - Math.abs(x.dpp))
+    : []
+  const sg = (x: number, d = 3) => `${x > 0 ? '+' : ''}${fmtNum(x, lang, d)}`
+  const coverCols: Column<CRow>[] = [
+    { id: 'c', header: ts.coverCols[0], cell: (r) => r.name, csv: (r) => r.name },
+    { id: 'f', header: `${ts.coverCols[1]} (${firstY?.year ?? ''}) %`, align: 'right', cell: (r) => fmtNum(r.first, lang, 3), csv: (r) => r.first },
+    { id: 'l', header: `${ts.coverCols[2]} (${lastY?.year ?? ''}) %`, align: 'right', cell: (r) => fmtNum(r.last, lang, 3), csv: (r) => r.last },
+    { id: 'p', header: ts.coverCols[3], align: 'right', cell: (r) => sg(r.dpp, 3), csv: (r) => r.dpp },
+    { id: 'k', header: ts.coverCols[4], align: 'right', cell: (r) => sg(r.dkm2, 3), csv: (r) => r.dkm2 },
+  ]
+  const sceneCols: Column<SatelliteImage>[] = [
+    { id: 'y', header: ts.scenesCols[0], cell: (r) => r.year, csv: (r) => r.year },
+    { id: 'd', header: ts.scenesCols[1], cell: (r) => r.date, csv: (r) => r.date },
+    { id: 'p', header: ts.scenesCols[2], cell: (r) => r.platform, csv: (r) => r.platform },
+    { id: 'c', header: ts.scenesCols[3], align: 'right', cell: (r) => fmtNum(r.cloud_cover, lang, 3), csv: (r) => r.cloud_cover },
+  ]
+
   return (
     <div className="studio-block">
       <p style={{ marginTop: 0 }}>
@@ -161,6 +193,16 @@ export function SatelliteView({
         </div>
       )}
 
+      {images && images.length > 0 && (
+        <section className="stat-stack" aria-label={ts.scenesTitle}>
+          <SectionHead title={ts.scenesTitle} />
+          <DataTable
+            columns={sceneCols} rows={images} rowKey={(r) => `${r.year}-${r.date}`} ariaLabel={ts.scenesTitle}
+            sticky maxHeight={260} csvName={ts.fileScenes} csvLabel={tb.csv}
+          />
+        </section>
+      )}
+
       <h3 className="spaced">{copy.lcTitle}</h3>
       {!cover && <p className="muted">{copy.loadingLc}</p>}
       {lc && lc.years.length > 0 && (
@@ -194,6 +236,16 @@ export function SatelliteView({
               {lc.warnings.map((w) => translateWarning(w, lang)).join(' ')}
             </p>
           </div>
+
+          {coverRows.length > 0 && (
+            <section className="stat-stack" aria-label={ts.coverTitle}>
+              <SectionHead title={ts.coverTitle} />
+              <DataTable
+                columns={coverCols} rows={coverRows} rowKey={(r) => r.id} ariaLabel={ts.coverTitle}
+                csvName={ts.fileCover} csvLabel={tb.csv}
+              />
+            </section>
+          )}
 
           {cover?.built_forecast && (
             <div className="chart-card" style={{ marginTop: 14 }}>

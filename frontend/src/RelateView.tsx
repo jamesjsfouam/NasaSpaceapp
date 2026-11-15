@@ -5,10 +5,12 @@ import {
 } from 'recharts'
 import { api, type Catalog, type RelateResponse } from './api'
 import { ExplainPanel } from './Explain'
+import { DataTable, SectionHead, type Column } from './DataTable'
 import {
-  fmtNum, formatRelationText, pTextLang, tIndicator, translateWarning, tUnit, tVariable,
+  fmtNum, fmtProb, formatRelationText, pTextLang, TBL, tIndicator, translateWarning, tUnit, tVariable,
   type Lang,
 } from './i18n'
+import type { RelationPoint } from './api'
 
 export type RelateQuery = {
   variable: string
@@ -300,6 +302,63 @@ export function RelateView({
               </ResponsiveContainer>
             </div>
           </div>
+
+          {(() => {
+            const tb = TBL[lang]
+            const tr = tb.rel
+            type CorrRow = { id: string; measure: string; r: number; p: number; rho: number | null; rhoP: number | null }
+            const corr: CorrRow[] = [
+              { id: 'raw', measure: tr.raw, r: rel.raw_r, p: rel.raw_p, rho: null, rhoP: null },
+              { id: 'det', measure: tr.detr, r: rel.detrended_r, p: rel.detrended_p, rho: rel.detrended_rho, rhoP: rel.detrended_rho_p },
+            ]
+            const num = (x: number | null, d = 2) => (x === null || !Number.isFinite(x) ? tb.na : fmtNum(x, lang, d))
+            const prob = (x: number | null) => (x === null || !Number.isFinite(x) ? tb.na : fmtProb(x, lang))
+            const corrCols: Column<CorrRow>[] = [
+              { id: 'm', header: tr.cols[0], cell: (r) => r.measure, csv: (r) => r.measure },
+              { id: 'r', header: tr.cols[1], align: 'right', cell: (r) => num(r.r), csv: (r) => r.r },
+              { id: 'p', header: tr.cols[2], align: 'right', cell: (r) => prob(r.p), csv: (r) => r.p },
+              { id: 'rho', header: tr.cols[3], align: 'right', cell: (r) => num(r.rho), csv: (r) => r.rho },
+              { id: 'rp', header: tr.cols[4], align: 'right', cell: (r) => prob(r.rhoP), csv: (r) => r.rhoP },
+            ]
+            type PRow = { id: string; name: string; value: string }
+            const excluded = rel.excluded_years ?? []
+            const params: PRow[] = [
+              { id: 'lag', name: tr.lag, value: String(rel.lag_years ?? 0) },
+              { id: 'n', name: tr.nYears, value: `${rel.n_years} (${rel.first_year}–${rel.last_year})` },
+              { id: 'ex', name: tr.excluded, value: excluded.length ? excluded.join(', ') : tb.none },
+            ]
+            const paramCols: Column<PRow>[] = [
+              { id: 'n', header: tr.paramsCols[0], cell: (r) => r.name },
+              { id: 'v', header: tr.paramsCols[1], align: 'right', cell: (r) => r.value },
+            ]
+            const pairCols: Column<RelationPoint>[] = [
+              { id: 'y', header: tr.pairsCols[0], cell: (r) => r.year, csv: (r) => r.year },
+              { id: 'e', header: `${tr.pairsCols[1]} (${variable?.unit ?? ''})`, align: 'right', cell: (r) => fmtNum(r.earth, lang, 4), csv: (r) => r.earth },
+              { id: 'i', header: `${tr.pairsCols[2]} (${dataInd.unit})`, align: 'right', cell: (r) => fmtNum(r.indicator, lang, 4), csv: (r) => r.indicator },
+              { id: 'ed', header: tr.pairsCols[3], align: 'right', cell: (r) => fmtNum(r.earth_detrended, lang, 3), csv: (r) => r.earth_detrended },
+              { id: 'id', header: tr.pairsCols[4], align: 'right', cell: (r) => fmtNum(r.indicator_detrended, lang, 3), csv: (r) => r.indicator_detrended },
+            ]
+            return (
+              <section className="stat-stack" aria-label={tr.title}>
+                <SectionHead title={tr.title} />
+                <DataTable columns={corrCols} rows={corr} rowKey={(r) => r.id} ariaLabel={tr.title} csvName={tr.fileCorr} csvLabel={tb.csv} />
+                <div className="stat-sub">
+                  <h4 className="stat-sub-title">{tr.paramsTitle}</h4>
+                  <DataTable columns={paramCols} rows={params} rowKey={(r) => r.id} ariaLabel={tr.paramsTitle} />
+                </div>
+                {rel.interpretation && (
+                  <p className="small" style={{ margin: 0 }}><strong>{tr.interp}: </strong>{rel.interpretation}</p>
+                )}
+                <div className="stat-sub">
+                  <h4 className="stat-sub-title">{tr.pairsTitle}</h4>
+                  <DataTable
+                    columns={pairCols} rows={rel.points} rowKey={(r) => String(r.year)} ariaLabel={tr.pairsTitle}
+                    sticky maxHeight={320} csvName={tr.filePairs} csvLabel={tb.csv}
+                  />
+                </div>
+              </section>
+            )
+          })()}
 
           <ExplainPanel
             request={{

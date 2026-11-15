@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { COLOR } from './theme'
 import { api, type Catalog, type DemographyResponse } from './api'
 import { ExplainPanel } from './Explain'
+import { DataTable, SectionHead, type Column } from './DataTable'
 import {
-  fmtNum, tDemography, translateWarning, tUnit, verdictLabel, type Lang,
+  fmtNum, TBL, tDemography, translateWarning, tUnit, verdictLabel, type Lang,
 } from './i18n'
 import { SeriesChart } from './SeriesChart'
 
@@ -92,6 +93,33 @@ export function DemographyView({
         note: `The green curve is the official UN World Population Prospects projection (modeling fertility, mortality, and migration by age). The purple line simply shows linear extrapolation from ${start}–${last?.year ?? ''} for contrast.`,
       }
 
+  // ---- tabla por año: histórico, proyección ONU y ritmo lineal
+  const tb = TBL[lang]
+  const tp = tb.pop
+  type PRow = { year: number; hist: number | null; un: number | null; lin: number | null }
+  const popRows: PRow[] = data
+    ? (() => {
+        const hist = new Map(data.history.filter((p) => p.year >= 1950).map((p) => [p.year, p.mean]))
+        const un = new Map(data.un_projection.map((p) => [p.year, p.mean]))
+        const lin = new Map((data.forecast?.points ?? []).map((p) => [p.year, p.value]))
+        return [...new Set([...hist.keys(), ...un.keys(), ...lin.keys()])]
+          .sort((x, y) => x - y)
+          .map((year) => ({ year, hist: hist.get(year) ?? null, un: un.get(year) ?? null, lin: lin.get(year) ?? null }))
+      })()
+    : []
+  const cell = (v: number | null) => (v === null ? tb.na : fmtNum(v, lang, 4))
+  const popCols: Column<PRow>[] = [
+    { id: 'y', header: tp.cols[0], cell: (r) => r.year, csv: (r) => r.year },
+    { id: 'h', header: `${tp.cols[1]} (${unit})`, align: 'right', cell: (r) => cell(r.hist), csv: (r) => r.hist },
+    { id: 'u', header: tp.cols[2], align: 'right', cell: (r) => cell(r.un), csv: (r) => r.un },
+    { id: 'l', header: tp.cols[3], align: 'right', cell: (r) => cell(r.lin), csv: (r) => r.lin },
+    {
+      id: 'd', header: tp.cols[4], align: 'right',
+      cell: (r) => (r.un !== null && r.lin !== null ? `${r.un - r.lin > 0 ? '+' : ''}${fmtNum(r.un - r.lin, lang, 4)}` : tb.na),
+      csv: (r) => (r.un !== null && r.lin !== null ? r.un - r.lin : null),
+    },
+  ]
+
   return (
     <div className="studio-block">
       <div className="controls">
@@ -171,6 +199,14 @@ export function DemographyView({
             />
             <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.note}</p>
           </div>
+
+          <section className="stat-stack" aria-label={tp.title}>
+            <SectionHead title={tp.title} />
+            <DataTable
+              columns={popCols} rows={popRows} rowKey={(r) => String(r.year)} ariaLabel={tp.title}
+              sticky maxHeight={360} csvName={`${tp.file}-${iso3}-${indicator}`} csvLabel={tb.csv}
+            />
+          </section>
 
           {data.forecast?.warnings.map((w) => (
             <p key={w} className="muted small">{translateWarning(w, lang)}</p>
