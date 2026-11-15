@@ -254,109 +254,79 @@ export function RelateView({
             </ul>
           )}
 
-          <div className="charts">
-            <div className="chart-card">
-              <h3>{copy.chart1Title}</h3>
-              <p className="muted small">{copy.chart1Sub}</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={series} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                  <XAxis dataKey="year" />
-                  <YAxis width={36} />
-                  <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
-                  <Legend />
-                  <Line name={variable?.label ?? ''} dataKey="earth" stroke={COLOR.observed} strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <Line name={dataInd.label} dataKey="indicator" stroke={COLOR.trend} strokeWidth={2} dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="chart-card">
-              <h3>{copy.chart2Title}</h3>
-              <p className="muted small">{copy.chart2Sub}</p>
-              <ResponsiveContainer width="100%" height={250}>
-                <ScatterChart margin={{ top: 8, right: 12, bottom: 16, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                  <XAxis
-                    type="number"
-                    dataKey="earth_detrended"
-                    name={variable?.label}
-                    tickFormatter={(v: number) => fmtNum(v, lang, 2)}
-                    label={{
-                      value: `${variable?.label} (${variable?.unit})`,
-                      position: 'insideBottom',
-                      offset: -8,
-                      style: { fontSize: 11, fill: 'var(--muted)' },
-                    }}
-                  />
-                  <YAxis
-                    type="number"
-                    dataKey="indicator_detrended"
-                    name={dataInd.label}
-                    width={52}
-                    tickFormatter={(v: number) => fmtNum(v, lang, 2)}
-                  />
-                  <Tooltip formatter={(v) => (typeof v === 'number' ? fmtNum(v, lang) : v)} labelFormatter={() => ''} />
-                  <Scatter data={rel.points} fill={COLOR.observed} isAnimationActive={false} />
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
           {(() => {
             const tb = TBL[lang]
             const tr = tb.rel
-            type CorrRow = { id: string; measure: string; r: number; p: number; rho: number | null; rhoP: number | null }
-            const corr: CorrRow[] = [
-              { id: 'raw', measure: tr.raw, r: rel.raw_r, p: rel.raw_p, rho: null, rhoP: null },
-              { id: 'det', measure: tr.detr, r: rel.detrended_r, p: rel.detrended_p, rho: rel.detrended_rho, rhoP: rel.detrended_rho_p },
-            ]
-            const num = (x: number | null, d = 2) => (x === null || !Number.isFinite(x) ? tb.na : fmtNum(x, lang, d))
-            const prob = (x: number | null) => (x === null || !Number.isFinite(x) ? tb.na : fmtProb(x, lang))
-            const corrCols: Column<CorrRow>[] = [
-              { id: 'm', header: tr.cols[0], cell: (r) => r.measure, csv: (r) => r.measure },
-              { id: 'r', header: tr.cols[1], align: 'right', cell: (r) => num(r.r), csv: (r) => r.r },
-              { id: 'p', header: tr.cols[2], align: 'right', cell: (r) => prob(r.p), csv: (r) => r.p },
-              { id: 'rho', header: tr.cols[3], align: 'right', cell: (r) => num(r.rho), csv: (r) => r.rho },
-              { id: 'rp', header: tr.cols[4], align: 'right', cell: (r) => prob(r.rhoP), csv: (r) => r.rhoP },
-            ]
-            type PRow = { id: string; name: string; value: string }
-            const excluded = rel.excluded_years ?? []
-            const params: PRow[] = [
-              { id: 'lag', name: tr.lag, value: String(rel.lag_years ?? 0) },
-              { id: 'n', name: tr.nYears, value: `${rel.n_years} (${rel.first_year}–${rel.last_year})` },
-              { id: 'ex', name: tr.excluded, value: excluded.length ? excluded.join(', ') : tb.none },
-            ]
-            const paramCols: Column<PRow>[] = [
-              { id: 'n', header: tr.paramsCols[0], cell: (r) => r.name },
-              { id: 'v', header: tr.paramsCols[1], align: 'right', cell: (r) => r.value },
-            ]
-            const pairCols: Column<RelationPoint>[] = [
-              { id: 'y', header: tr.pairsCols[0], cell: (r) => r.year, csv: (r) => r.year },
-              { id: 'e', header: `${tr.pairsCols[1]} (${variable?.unit ?? ''})`, align: 'right', cell: (r) => fmtNum(r.earth, lang, 4), csv: (r) => r.earth },
-              { id: 'i', header: `${tr.pairsCols[2]} (${dataInd.unit})`, align: 'right', cell: (r) => fmtNum(r.indicator, lang, 4), csv: (r) => r.indicator },
-              { id: 'ed', header: tr.pairsCols[3], align: 'right', cell: (r) => fmtNum(r.earth_detrended, lang, 3), csv: (r) => r.earth_detrended },
-              { id: 'id', header: tr.pairsCols[4], align: 'right', cell: (r) => fmtNum(r.indicator_detrended, lang, 3), csv: (r) => r.indicator_detrended },
-            ]
+            const vr = VIEW[lang].rel
+            const rr = (id: string, label: string, r: number, p: number): VRow => ({
+              id, label, value: r, tone: id === 'raw' ? 'none' : 'sig',
+              text: `r = ${r > 0 ? '+' : ''}${fmtNum(r, lang, 2)}`, sub: `p ${fmtProb(p, lang)}`,
+            })
             return (
-              <section className="stat-stack" aria-label={tr.title}>
-                <SectionHead title={tr.title} />
-                <DataTable columns={corrCols} rows={corr} rowKey={(r) => r.id} ariaLabel={tr.title} csvName={tr.fileCorr} csvLabel={tb.csv} />
-                <div className="stat-sub">
-                  <h4 className="stat-sub-title">{tr.paramsTitle}</h4>
-                  <DataTable columns={paramCols} rows={params} rowKey={(r) => r.id} ariaLabel={tr.paramsTitle} />
-                </div>
-                {rel.interpretation && (
-                  <p className="small" style={{ margin: 0 }}><strong>{tr.interp}: </strong>{rel.interpretation}</p>
-                )}
-                <div className="stat-sub">
-                  <h4 className="stat-sub-title">{tr.pairsTitle}</h4>
-                  <DataTable
-                    columns={pairCols} rows={rel.points} rowKey={(r) => String(r.year)} ariaLabel={tr.pairsTitle}
-                    sticky maxHeight={320} csvName={tr.filePairs} csvLabel={tb.csv}
-                  />
-                </div>
-              </section>
+              <SectionView
+                id="rel-main" lang={lang} title={vr.title}
+                chart={
+                  <div className="view-stack">
+          <div className="charts">
+                      <div className="chart-card">
+                        <h3>{copy.chart1Title}</h3>
+                        <p className="muted small">{copy.chart1Sub}</p>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <LineChart data={series} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                            <XAxis dataKey="year" />
+                            <YAxis width={36} />
+                            <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
+                            <Legend />
+                            <Line name={variable?.label ?? ''} dataKey="earth" stroke={COLOR.observed} strokeWidth={2} dot={false} isAnimationActive={false} />
+                            <Line name={dataInd.label} dataKey="indicator" stroke={COLOR.trend} strokeWidth={2} dot={false} isAnimationActive={false} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="chart-card">
+                        <h3>{copy.chart2Title}</h3>
+                        <p className="muted small">{copy.chart2Sub}</p>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <ScatterChart margin={{ top: 8, right: 12, bottom: 16, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                            <XAxis
+                              type="number"
+                              dataKey="earth_detrended"
+                              name={variable?.label}
+                              tickFormatter={(v: number) => fmtNum(v, lang, 2)}
+                              label={{
+                                value: `${variable?.label} (${variable?.unit})`,
+                                position: 'insideBottom',
+                                offset: -8,
+                                style: { fontSize: 11, fill: 'var(--muted)' },
+                              }}
+                            />
+                            <YAxis
+                              type="number"
+                              dataKey="indicator_detrended"
+                              name={dataInd.label}
+                              width={52}
+                              tickFormatter={(v: number) => fmtNum(v, lang, 2)}
+                            />
+                            <Tooltip formatter={(v) => (typeof v === 'number' ? fmtNum(v, lang) : v)} labelFormatter={() => ''} />
+                            <Scatter data={rel.points} fill={COLOR.observed} isAnimationActive={false} />
+                          </ScatterChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                    <div className="view-stack" style={{ gap: 10 }}>
+                      <p className="view-subtitle">{vr.corrTitle}</p>
+                      <ValueRows
+                        lang={lang} ariaLabel={vr.corrTitle} domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]}
+                        rows={[rr('raw', tr.raw, rel.raw_r, rel.raw_p), rr('det', tr.detr, rel.detrended_r, rel.detrended_p)]}
+                      />
+                      <p className="view-note">{vr.corrNote}</p>
+                    </div>
+                  </div>
+                }
+                table={<RelTables rel={rel} variable={variable} dataInd={dataInd} lang={lang} />}
+              />
             )
           })()}
 
@@ -377,4 +347,66 @@ export function RelateView({
       )}
     </div>
   )
+}
+
+/** Tablas de la relación: correlaciones, parámetros y pares por año. */
+function RelTables({ rel, variable, dataInd, lang }: {
+  rel: Relation
+  variable: { label: string; unit: string } | undefined
+  dataInd: { label: string; unit: string } | undefined
+  lang: Lang
+}) {
+    const tb = TBL[lang]
+    const tr = tb.rel
+    type CorrRow = { id: string; measure: string; r: number; p: number; rho: number | null; rhoP: number | null }
+    const corr: CorrRow[] = [
+      { id: 'raw', measure: tr.raw, r: rel.raw_r, p: rel.raw_p, rho: null, rhoP: null },
+      { id: 'det', measure: tr.detr, r: rel.detrended_r, p: rel.detrended_p, rho: rel.detrended_rho, rhoP: rel.detrended_rho_p },
+    ]
+    const num = (x: number | null, d = 2) => (x === null || !Number.isFinite(x) ? tb.na : fmtNum(x, lang, d))
+    const prob = (x: number | null) => (x === null || !Number.isFinite(x) ? tb.na : fmtProb(x, lang))
+    const corrCols: Column<CorrRow>[] = [
+      { id: 'm', header: tr.cols[0], cell: (r) => r.measure, csv: (r) => r.measure },
+      { id: 'r', header: tr.cols[1], align: 'right', cell: (r) => num(r.r), csv: (r) => r.r },
+      { id: 'p', header: tr.cols[2], align: 'right', cell: (r) => prob(r.p), csv: (r) => r.p },
+      { id: 'rho', header: tr.cols[3], align: 'right', cell: (r) => num(r.rho), csv: (r) => r.rho },
+      { id: 'rp', header: tr.cols[4], align: 'right', cell: (r) => prob(r.rhoP), csv: (r) => r.rhoP },
+    ]
+    type PRow = { id: string; name: string; value: string }
+    const excluded = rel.excluded_years ?? []
+    const params: PRow[] = [
+      { id: 'lag', name: tr.lag, value: String(rel.lag_years ?? 0) },
+      { id: 'n', name: tr.nYears, value: `${rel.n_years} (${rel.first_year}–${rel.last_year})` },
+      { id: 'ex', name: tr.excluded, value: excluded.length ? excluded.join(', ') : tb.none },
+    ]
+    const paramCols: Column<PRow>[] = [
+      { id: 'n', header: tr.paramsCols[0], cell: (r) => r.name },
+      { id: 'v', header: tr.paramsCols[1], align: 'right', cell: (r) => r.value },
+    ]
+    const pairCols: Column<RelationPoint>[] = [
+      { id: 'y', header: tr.pairsCols[0], cell: (r) => r.year, csv: (r) => r.year },
+      { id: 'e', header: `${tr.pairsCols[1]} (${variable?.unit ?? ''})`, align: 'right', cell: (r) => fmtNum(r.earth, lang, 4), csv: (r) => r.earth },
+      { id: 'i', header: `${tr.pairsCols[2]} (${dataInd.unit})`, align: 'right', cell: (r) => fmtNum(r.indicator, lang, 4), csv: (r) => r.indicator },
+      { id: 'ed', header: tr.pairsCols[3], align: 'right', cell: (r) => fmtNum(r.earth_detrended, lang, 3), csv: (r) => r.earth_detrended },
+      { id: 'id', header: tr.pairsCols[4], align: 'right', cell: (r) => fmtNum(r.indicator_detrended, lang, 3), csv: (r) => r.indicator_detrended },
+    ]
+    return (
+      <section className="stat-stack" aria-label={tr.title}>
+        <DataTable columns={corrCols} rows={corr} rowKey={(r) => r.id} ariaLabel={tr.title} csvName={tr.fileCorr} csvLabel={tb.csv} />
+        <div className="stat-sub">
+          <h4 className="stat-sub-title">{tr.paramsTitle}</h4>
+          <DataTable columns={paramCols} rows={params} rowKey={(r) => r.id} ariaLabel={tr.paramsTitle} />
+        </div>
+        {rel.interpretation && (
+          <p className="small" style={{ margin: 0 }}><strong>{tr.interp}: </strong>{rel.interpretation}</p>
+        )}
+        <div className="stat-sub">
+          <h4 className="stat-sub-title">{tr.pairsTitle}</h4>
+          <DataTable
+            columns={pairCols} rows={rel.points} rowKey={(r) => String(r.year)} ariaLabel={tr.pairsTitle}
+            sticky maxHeight={320} csvName={tr.filePairs} csvLabel={tb.csv}
+          />
+        </div>
+      </section>
+    )
 }

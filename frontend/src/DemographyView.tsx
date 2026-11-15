@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { COLOR } from './theme'
 import { api, type Catalog, type DemographyResponse } from './api'
 import { ExplainPanel } from './Explain'
-import { DataTable, SectionHead, type Column } from './DataTable'
+import { DataTable, type Column } from './DataTable'
+import { SectionView } from './ViewSwitch'
 import {
-  fmtNum, TBL, tDemography, translateWarning, tUnit, verdictLabel, type Lang,
+  fmtNum, TBL, tDemography, translateWarning, tUnit, VIEW, verdictLabel, type Lang,
 } from './i18n'
 import { SeriesChart } from './SeriesChart'
 
@@ -189,24 +190,27 @@ export function DemographyView({
             </div>
           </div>
 
-          <div className="chart-card">
-            <SeriesChart
-              history={data.history.filter((p) => p.year >= 1950)}
-              official={data.un_projection}
-              forecast={data.forecast}
-              unit={unit}
-              lang={lang}
-            />
-            <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.note}</p>
-          </div>
-
-          <section className="stat-stack" aria-label={tp.title}>
-            <SectionHead title={tp.title} />
-            <DataTable
-              columns={popCols} rows={popRows} rowKey={(r) => String(r.year)} ariaLabel={tp.title}
-              sticky maxHeight={360} csvName={`${tp.file}-${iso3}-${indicator}`} csvLabel={tb.csv}
-            />
-          </section>
+          <SectionView
+            id="pop-main" lang={lang} title={VIEW[lang].pop.title}
+            chart={
+              <div>
+                <SeriesChart
+                  history={data.history.filter((p) => p.year >= 1950)}
+                  official={data.un_projection}
+                  forecast={data.forecast}
+                  unit={unit}
+                  lang={lang}
+                />
+                <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.note}</p>
+              </div>
+            }
+            table={
+              <DataTable
+                columns={popCols} rows={popRows} rowKey={(r) => String(r.year)} ariaLabel={tp.title}
+                sticky maxHeight={360} csvName={`${tp.file}-${iso3}-${indicator}`} csvLabel={tb.csv}
+              />
+            }
+          />
 
           {data.forecast?.warnings.map((w) => (
             <p key={w} className="muted small">{translateWarning(w, lang)}</p>

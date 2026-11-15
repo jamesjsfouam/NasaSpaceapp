@@ -1,7 +1,10 @@
 import type { Forecast, Trend } from './api'
 import { DataTable, SectionHead, type Column } from './DataTable'
-import { fmtNum, fmtProb, TBL, tUnit, type Lang } from './i18n'
+import { fmtNum, fmtProb, TBL, tUnit, VIEW, type Lang } from './i18n'
 import { mean, sd } from './stats'
+import { COLOR } from './theme'
+import { SectionView } from './ViewSwitch'
+import { ResidualBars, ScenarioBand, StatCards, ValueRows, type VRow } from './ViewCharts'
 
 const signed = (x: number, lang: Lang, digits = 3) => `${x > 0 ? '+' : ''}${fmtNum(x, lang, digits)}`
 
@@ -101,46 +104,75 @@ export function TrendTables({ trend: t, lang }: { trend: Trend; lang: Lang }) {
     { id: 'res', header: tt.dataCols[3], align: 'right', cell: (r) => (r.resid === null ? c.na : signed(r.resid, lang, 3)), csv: (r) => r.resid },
   ]
 
+  const vw = VIEW[lang].trend
+  const forestRows: VRow[] = [
+    { id: 'ts', label: tt.ts, value: t.slope_per_decade, lo: t.ci_low_per_decade, hi: t.ci_high_per_decade, text: signed(t.slope_per_decade, lang), sub: methods[0].p },
+    { id: 'ols', label: tt.ols, value: t.ols_slope_per_decade, lo: t.ols_ci_low_per_decade, hi: t.ols_ci_high_per_decade, color: COLOR.trend, text: signed(t.ols_slope_per_decade, lang), sub: methods[1].p },
+  ]
+  const resid = rows.filter((r) => r.kind === 'year' && r.resid !== null).map((r) => ({ year: Number(r.label), resid: r.resid as number }))
+
   return (
     <section className="stat-stack" aria-label={tt.title}>
       <SectionHead title={tt.title} sub={tt.sub} />
 
       {desc.length > 0 && (
-        <div className="stat-sub">
-          <h4 className="stat-sub-title">{tt.descTitle}</h4>
-          <DataTable
-            columns={descCols} rows={desc} rowKey={(r) => r.id} ariaLabel={tt.descTitle}
-            csvName={`${tt.file}-descriptivos-${t.variable}`} csvLabel={c.csv}
-          />
-        </div>
+        <SectionView
+          id="trend-desc" lang={lang} level="sub" title={tt.descTitle}
+          chart={<StatCards items={desc.map((r) => ({ id: r.id, label: r.label, value: r.value }))} />}
+          table={
+            <DataTable
+              columns={descCols} rows={desc} rowKey={(r) => r.id} ariaLabel={tt.descTitle}
+              csvName={`${tt.file}-descriptivos-${t.variable}`} csvLabel={c.csv}
+            />
+          }
+        />
       )}
 
-      <div className="stat-sub">
-        <h4 className="stat-sub-title">{tt.methodTitle}</h4>
-        <DataTable
-          columns={methodCols} rows={methods} rowKey={(r) => r.id} ariaLabel={tt.methodTitle}
-          rowClass={(r) => (r.agree ? 'row-agree' : undefined)}
-          csvName={`${tt.file}-metodos-${t.variable}`} csvLabel={c.csv}
-        />
-      </div>
+      <SectionView
+        id="trend-methods" lang={lang} level="sub" title={tt.methodTitle}
+        chart={
+          <div className="view-stack">
+            <p className="view-subtitle">{vw.forestTitle}</p>
+            <ValueRows rows={forestRows} lang={lang} ariaLabel={vw.forestTitle} />
+            <p className="view-note">{vw.forestNote}</p>
+            <p className="small" style={{ margin: 0 }}><strong>{tt.agree}: </strong>{methods[2].read}</p>
+          </div>
+        }
+        table={
+          <DataTable
+            columns={methodCols} rows={methods} rowKey={(r) => r.id} ariaLabel={tt.methodTitle}
+            rowClass={(r) => (r.agree ? 'row-agree' : undefined)}
+            csvName={`${tt.file}-metodos-${t.variable}`} csvLabel={c.csv}
+          />
+        }
+      />
 
       {rows.length > 0 && (
-        <div className="stat-sub">
-          <h4 className="stat-sub-title">{tt.dataTitle}</h4>
-          <DataTable
-            columns={yearCols} rows={rows} rowKey={(r) => r.id} ariaLabel={tt.dataTitle}
-            sticky maxHeight={340} rowClass={(r) => (r.kind === 'decade' ? 'row-summary' : undefined)}
-            csvRows={rows.filter((r) => r.kind === 'year')}
-            csvName={`${tt.file}-por-anio-${t.variable}`} csvLabel={c.csv}
-          />
-        </div>
+        <SectionView
+          id="trend-years" lang={lang} level="sub" title={tt.dataTitle}
+          chart={
+            <div className="view-stack">
+              <p className="view-subtitle">{vw.residTitle}</p>
+              <ResidualBars data={resid} unit={unit} lang={lang} />
+              <p className="view-note">{vw.residNote}</p>
+            </div>
+          }
+          table={
+            <DataTable
+              columns={yearCols} rows={rows} rowKey={(r) => r.id} ariaLabel={tt.dataTitle}
+              sticky maxHeight={340} rowClass={(r) => (r.kind === 'decade' ? 'row-summary' : undefined)}
+              csvRows={rows.filter((r) => r.kind === 'year')}
+              csvName={`${tt.file}-por-anio-${t.variable}`} csvLabel={c.csv}
+            />
+          }
+        />
       )}
     </section>
   )
 }
 
 /** Tabla del escenario por año (valor y rango del 95 %). */
-export function ScenarioTable({ forecast, unit, variable, lang }: { forecast: Forecast; unit: string; variable: string; lang: Lang }) {
+export function ScenarioTable({ forecast, unit, variable, lang, bare }: { forecast: Forecast; unit: string; variable: string; lang: Lang; bare?: boolean }) {
   const c = TBL[lang]
   const tt = c.trend
   type R = Forecast['points'][number]
@@ -152,12 +184,29 @@ export function ScenarioTable({ forecast, unit, variable, lang }: { forecast: Fo
   ]
   return (
     <div className="stat-sub">
-      <h4 className="stat-sub-title">{tt.scenTitle}</h4>
+      {!bare && <h4 className="stat-sub-title">{tt.scenTitle}</h4>}
       <DataTable
         columns={cols} rows={forecast.points} rowKey={(r) => String(r.year)} ariaLabel={tt.scenTitle}
         sticky maxHeight={280} csvName={`${tt.file}-escenario-${variable}`} csvLabel={c.csv}
       />
     </div>
+  )
+}
+
+/** Escenario por año: gráfica (valor y rango) por defecto; tabla con el interruptor. */
+export function ScenarioView({ forecast, unit, variable, lang }: { forecast: Forecast; unit: string; variable: string; lang: Lang }) {
+  const tt = TBL[lang].trend
+  return (
+    <SectionView
+      id="trend-scenario" lang={lang} level="sub" title={tt.scenTitle}
+      chart={
+        <div className="view-stack">
+          <ScenarioBand points={forecast.points} unit={unit} lang={lang} />
+          <p className="view-note">{VIEW[lang].trend.scenChartNote}</p>
+        </div>
+      }
+      table={<ScenarioTable forecast={forecast} unit={unit} variable={variable} lang={lang} bare />}
+    />
   )
 }
 

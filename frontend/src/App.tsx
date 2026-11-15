@@ -14,13 +14,15 @@ import { GlobeSection, type SecondSpot, type Spot } from './GlobeSection'
 import {
   certaintyInfo, CONCERNS_EN, fmtNum, fmtProb, formatForecastText, humanVerdictSummary,
   PLACE_TYPES_EN, TBL, translateWarning, tDemo, tRegion, tUnit, tVariable, UI,
-  verdictLabel, type Lang, type Phase,
+  verdictLabel, VIEW, type Lang, type Phase,
 } from './i18n'
 import { RelateView } from './RelateView'
 import { SatelliteView } from './SatelliteView'
 import { TrendChart } from './TrendChart'
-import { AdvancedTests, ScenarioTable, TrendTables } from './TrendTables'
-import { DataTable, SectionHead, type Column } from './DataTable'
+import { AdvancedTests, ScenarioView, TrendTables } from './TrendTables'
+import { DataTable, type Column } from './DataTable'
+import { SectionView } from './ViewSwitch'
+import { ToneLegend, ValueRows, type VRow } from './ViewCharts'
 
 type Tab = 'trend' | 'scan' | 'compare' | 'satellite' | 'population' | 'relate'
 type Query = { variable: string; start: number; spot: Spot }
@@ -842,7 +844,7 @@ function TrendView({
             {scenario.warnings.map((w) => (
               <p key={w} className="muted small" style={{ margin: '2px 0' }}>{translateWarning(w, lang)}</p>
             ))}
-            <ScenarioTable forecast={scenario} unit={unit} variable={t.variable} lang={lang} />
+            <ScenarioView forecast={scenario} unit={unit} variable={t.variable} lang={lang} />
           </div>
         )}
       </div>
@@ -970,27 +972,77 @@ function ScanAndRegionsView({
     },
   ]
 
+  const vw = VIEW[lang]
+  const evidence = (r: Trend) => {
+    const sign = r.direction === 'up' ? 1 : r.direction === 'down' ? -1 : Math.sign(r.slope_per_decade)
+    return sign * Math.min(4, -Math.log10(Math.max(r.mk_p, 1e-12)))
+  }
+  const tone = (r: Trend): VRow['tone'] => (r.verdict === 'significant' ? 'sig' : r.verdict === 'not_yet' ? 'watch' : 'none')
+  const scanRows: VRow[] = scan.results.map((r) => {
+    const rawV = cat.variables.find((v) => v.key === r.variable)
+    const name = rawV ? tVariable(rawV, lang).label : r.label
+    return {
+      id: r.variable,
+      label: <button className="link" onClick={() => onOpen(r.variable)}>{DIRECTION_ARROW[r.direction]} {name}</button>,
+      value: evidence(r),
+      tone: tone(r),
+      text: `${sg(r.slope_per_decade)} ${tUnit(r.unit, lang)}`,
+      sub: `p ${fmtProb(r.mk_p, lang)}`,
+    }
+  })
+  const regChartRows: VRow[] = regRows.map((x) => ({
+    id: x.region.id,
+    label: (<><strong>{x.region.label}</strong><br /><span className="muted small">{x.region.biome}</span></>),
+    value: x.row.result ? evidence(x.row.result) : 0,
+    tone: x.row.result ? tone(x.row.result) : 'none',
+    text: x.row.result ? `${sg(x.row.result.slope_per_decade)} ${tUnit(x.row.result.unit, lang)}` : tb.na,
+    sub: x.row.result ? `p ${fmtProb(x.row.result.mk_p, lang)}` : undefined,
+  }))
+  const evidenceTicks = [-4, -2, 0, 2, 4]
+
   return (
     <div className="studio-block">
-      <div className="chart-card">
-        <SectionHead title={`${sCopy.title} ${where}`} sub={sCopy.sub} />
-        <DataTable
-          columns={scanCols} rows={scan.results} rowKey={(r) => r.variable} ariaLabel={sCopy.title}
-          csvName={tb.scan.fileScan} csvLabel={tb.csv}
-        />
-        <p className="muted small" style={{ marginBottom: 0 }}>{sCopy.bonferroniNote}</p>
-      </div>
+      <SectionView
+        id="scan-vars" lang={lang} title={`${sCopy.title} ${where}`} sub={sCopy.sub}
+        chart={
+          <div className="view-stack">
+            <ToneLegend lang={lang} />
+            <ValueRows rows={scanRows} domain={[-4, 4]} ticks={evidenceTicks} lang={lang} ariaLabel={sCopy.title} />
+            <p className="view-note">{vw.scale}</p>
+            <p className="muted small" style={{ margin: 0 }}>{sCopy.bonferroniNote}</p>
+          </div>
+        }
+        table={
+          <>
+            <DataTable
+              columns={scanCols} rows={scan.results} rowKey={(r) => r.variable} ariaLabel={sCopy.title}
+              csvName={tb.scan.fileScan} csvLabel={tb.csv}
+            />
+            <p className="muted small" style={{ marginBottom: 0 }}>{sCopy.bonferroniNote}</p>
+          </>
+        }
+      />
 
-      <div className="chart-card" style={{ marginTop: 16 }}>
-        <SectionHead
+      <div style={{ marginTop: 16 }}>
+        <SectionView
+          id="scan-regions" lang={lang}
           title={`${sCopy.regionsTitle} (${varLabel})`}
           sub={`${sCopy.regionsSub} ${lang === 'es'
             ? `(${ups} suben y ${downs} bajan significativamente.)`
             : `(${ups} rising and ${downs} falling significantly.)`}`}
-        />
-        <DataTable
-          columns={regCols} rows={regRows} rowKey={(x) => x.region.id} ariaLabel={sCopy.regionsTitle}
-          csvName={tb.scan.fileReg} csvLabel={tb.csv}
+          chart={
+            <div className="view-stack">
+              <ToneLegend lang={lang} />
+              <ValueRows rows={regChartRows} domain={[-4, 4]} ticks={evidenceTicks} lang={lang} ariaLabel={sCopy.regionsTitle} />
+              <p className="view-note">{vw.scale}</p>
+            </div>
+          }
+          table={
+            <DataTable
+              columns={regCols} rows={regRows} rowKey={(x) => x.region.id} ariaLabel={sCopy.regionsTitle}
+              csvName={tb.scan.fileReg} csvLabel={tb.csv}
+            />
+          }
         />
       </div>
     </div>

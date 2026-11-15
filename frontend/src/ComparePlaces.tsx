@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { COLOR } from './theme'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, DIRECTION_ARROW, type Place, type Region, type TrendResponse } from './api'
-import { DataTable, SectionHead, type Column } from './DataTable'
+import { DataTable, type Column } from './DataTable'
+import { SectionView } from './ViewSwitch'
+import { ValueRows, type VRow } from './ViewCharts'
 import {
-  certaintyInfo, fmtNum, fmtProb, TBL, tRegion, tUnit, verdictLabel, type Lang,
+  certaintyInfo, fmtNum, fmtProb, TBL, tRegion, tUnit, VIEW, verdictLabel, type Lang,
 } from './i18n'
 import { commonYears, diffs, pearson, pFromPearson, pFromZ, seFromCI } from './stats'
 
@@ -261,36 +263,63 @@ export function ComparePlaces({
             })}
           </div>
 
-          <div className="chart-card">
-            <ResponsiveContainer width="100%" height={270}>
-              <LineChart data={series} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
-                <XAxis dataKey="year" />
-                <YAxis width={38} />
-                <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
-                <Legend />
-                <Line name={a.label} dataKey="a" stroke={COLOR.spotA} strokeWidth={2.4} dot={false} isAnimationActive={false} />
-                <Line name={b.label} dataKey="b" stroke={COLOR.spotB} strokeWidth={2.4} dot={false} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-            <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.chartNote}</p>
-          </div>
-
-          <section className="stat-stack" aria-label={tc.title}>
-            <SectionHead title={tc.title} />
-            <DataTable
-              columns={measureCols} rows={measureRows} rowKey={(r) => r.id} ariaLabel={tc.title}
-              csvName={`${tc.file}-${variable}`} csvLabel={tb.csv}
-            />
-            <div className="stat-sub">
-              <h4 className="stat-sub-title">{tc.relTitle}</h4>
-              <DataTable
-                columns={relCols} rows={relRows} rowKey={(r) => r.id} ariaLabel={tc.relTitle}
-                csvName={`${tc.file}-relacion-${variable}`} csvLabel={tb.csv}
-              />
-              <p className="table-note">{tc.note}</p>
-            </div>
-          </section>
+          <SectionView
+            id="compare-main" lang={lang} title={VIEW[lang].compare.title}
+            chart={
+              <div className="view-stack">
+                <div>
+                  <ResponsiveContainer width="100%" height={270}>
+                    <LineChart data={series} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+                      <XAxis dataKey="year" />
+                      <YAxis width={38} />
+                      <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
+                      <Legend />
+                      <Line name={a.label} dataKey="a" stroke={COLOR.spotA} strokeWidth={2.4} dot={false} isAnimationActive={false} />
+                      <Line name={b.label} dataKey="b" stroke={COLOR.spotB} strokeWidth={2.4} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.chartNote}</p>
+                </div>
+                <div className="view-stack" style={{ gap: 10 }}>
+                  <p className="view-subtitle">{VIEW[lang].compare.slopeTitle}</p>
+                  <ValueRows
+                    lang={lang} ariaLabel={VIEW[lang].compare.slopeTitle}
+                    rows={pair.map((r, i): VRow => ({
+                      id: i === 0 ? 'a' : 'b',
+                      label: i === 0 ? a.label : b.label,
+                      value: r.result.slope_per_decade,
+                      lo: r.result.ci_low_per_decade,
+                      hi: r.result.ci_high_per_decade,
+                      color: i === 0 ? COLOR.spotA : COLOR.spotB,
+                      text: `${r.result.slope_per_decade > 0 ? '+' : ''}${fmtNum(r.result.slope_per_decade, lang)} ${tUnit(r.result.unit, lang)}`,
+                      sub: `p ${fmtProb(r.result.mk_p, lang)}`,
+                    }))}
+                  />
+                  <p className="view-note">{VIEW[lang].compare.slopeNote}</p>
+                </div>
+              </div>
+            }
+            table={
+              <section className="stat-stack" aria-label={tc.title}>
+                <div className="stat-sub">
+                  <h4 className="stat-sub-title">{tc.title}</h4>
+                  <DataTable
+                    columns={measureCols} rows={measureRows} rowKey={(r) => r.id} ariaLabel={tc.title}
+                    csvName={`${tc.file}-${variable}`} csvLabel={tb.csv}
+                  />
+                </div>
+                <div className="stat-sub">
+                  <h4 className="stat-sub-title">{tc.relTitle}</h4>
+                  <DataTable
+                    columns={relCols} rows={relRows} rowKey={(r) => r.id} ariaLabel={tc.relTitle}
+                    csvName={`${tc.file}-relacion-${variable}`} csvLabel={tb.csv}
+                  />
+                  <p className="table-note">{tc.note}</p>
+                </div>
+              </section>
+            }
+          />
         </>
       )}
     </div>

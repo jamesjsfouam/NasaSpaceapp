@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type LandCoverResponse, type SatelliteImage } from './api'
 import { ExplainPanel } from './Explain'
-import { DataTable, SectionHead, type Column } from './DataTable'
-import { fmtNum, formatForecastText, LANDCOVER_LABEL, TBL, translateWarning, type Lang } from './i18n'
+import { DataTable, type Column } from './DataTable'
+import { SectionView } from './ViewSwitch'
+import { CloudBars, ValueRows, type VRow } from './ViewCharts'
+import { fmtNum, formatForecastText, LANDCOVER_LABEL, TBL, translateWarning, VIEW, type Lang } from './i18n'
 import { SeriesChart } from './SeriesChart'
-import { LANDCOVER_COLOR as CLASS_COLORS } from './theme'
+import { COLOR, LANDCOVER_COLOR as CLASS_COLORS } from './theme'
 
 export function SatelliteView({
   lat,
@@ -194,20 +196,32 @@ export function SatelliteView({
       )}
 
       {images && images.length > 0 && (
-        <section className="stat-stack" aria-label={ts.scenesTitle}>
-          <SectionHead title={ts.scenesTitle} />
-          <DataTable
-            columns={sceneCols} rows={images} rowKey={(r) => `${r.year}-${r.date}`} ariaLabel={ts.scenesTitle}
-            sticky maxHeight={260} csvName={ts.fileScenes} csvLabel={tb.csv}
-          />
-        </section>
+        <SectionView
+          id="sat-scenes" lang={lang} title={ts.scenesTitle}
+          chart={
+            <div className="view-stack">
+              <CloudBars data={images.map((im) => ({ year: im.year, cloud: im.cloud_cover }))} label={ts.scenesCols[0]} lang={lang} />
+              <p className="view-note">{VIEW[lang].sat.scenesChartNote}</p>
+            </div>
+          }
+          table={
+            <DataTable
+              columns={sceneCols} rows={images} rowKey={(r) => `${r.year}-${r.date}`} ariaLabel={ts.scenesTitle}
+              sticky maxHeight={260} csvName={ts.fileScenes} csvLabel={tb.csv}
+            />
+          }
+        />
       )}
 
-      <h3 className="spaced">{copy.lcTitle}</h3>
+      {!lc && <h3 className="spaced">{copy.lcTitle}</h3>}
       {!cover && <p className="muted">{copy.loadingLc}</p>}
       {lc && lc.years.length > 0 && (
         <>
-          <div className="chart-card">
+          <SectionView
+            id="sat-cover" lang={lang} title={copy.lcTitle}
+            chart={
+              <div className="view-stack">
+                <div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart
                 data={lc.years.map((y) => ({ year: y.year, ...y.shares }))}
@@ -235,17 +249,33 @@ export function SatelliteView({
               {copy.lcNote} {fmtNum(lc.area_km2, lang, 3)} km² (Impact Observatory / Esri, 10 m).{' '}
               {lc.warnings.map((w) => translateWarning(w, lang)).join(' ')}
             </p>
-          </div>
-
-          {coverRows.length > 0 && (
-            <section className="stat-stack" aria-label={ts.coverTitle}>
-              <SectionHead title={ts.coverTitle} />
-              <DataTable
-                columns={coverCols} rows={coverRows} rowKey={(r) => r.id} ariaLabel={ts.coverTitle}
-                csvName={ts.fileCover} csvLabel={tb.csv}
-              />
-            </section>
-          )}
+                </div>
+                {coverRows.length > 0 && (
+                  <div className="view-stack" style={{ gap: 10 }}>
+                    <p className="view-subtitle">{VIEW[lang].sat.changeTitle}</p>
+                    <ValueRows
+                      lang={lang} ariaLabel={VIEW[lang].sat.changeTitle}
+                      rows={coverRows.map((r): VRow => ({
+                        id: r.id, label: r.name, value: r.dpp, color: CLASS_COLORS[r.id] ?? COLOR.ink, tone: 'plain',
+                        text: `${sg(r.dpp, 2)} ${ts.coverCols[3].match(/\(([^)]+)\)/)?.[1] ?? 'pp'}`,
+                        sub: `${sg(r.dkm2, 2)} km²`,
+                      }))}
+                    />
+                  </div>
+                )}
+              </div>
+            }
+            table={
+              coverRows.length > 0 ? (
+                <DataTable
+                  columns={coverCols} rows={coverRows} rowKey={(r) => r.id} ariaLabel={ts.coverTitle}
+                  csvName={ts.fileCover} csvLabel={tb.csv}
+                />
+              ) : (
+                <p className="muted small">{tb.na}</p>
+              )
+            }
+          />
 
           {cover?.built_forecast && (
             <div className="chart-card" style={{ marginTop: 14 }}>

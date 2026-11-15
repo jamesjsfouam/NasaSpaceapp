@@ -1061,3 +1061,83 @@ export const TBL = {
     },
   },
 } as const
+
+/** Textos del interruptor Gráfica / Tabla y de las gráficas añadidas a cada sección. */
+export const VIEW = {
+  es: {
+    chart: 'Gráfica',
+    table: 'Tabla',
+    switchLabel: 'Ver los datos como tabla',
+    scale: 'Fuerza de la evidencia: 0 = sin evidencia; ±4 = muy fuerte. Es la dirección del cambio por −log10 del valor p de Mann-Kendall, con tope en 4.',
+    sigLegend: 'Confirmado',
+    watchLegend: 'En observación',
+    noneLegend: 'Sin tendencia',
+    axisZero: '0',
+    trend: {
+      descTitle: 'Estadísticos descriptivos de la serie anual',
+      forestTitle: 'Método comparativo: pendiente por década con IC 95 %',
+      forestNote: 'La línea vertical marca 0: si el intervalo la cruza, esa prueba no ve un cambio distinguible del ruido.',
+      residTitle: 'Datos por año: residuo respecto a la tendencia ajustada',
+      residNote: 'Barras hacia arriba: el año fue más alto que la tendencia; hacia abajo, más bajo.',
+      residAbove: 'Sobre la tendencia',
+      residBelow: 'Bajo la tendencia',
+      scenChartNote: 'Valor del escenario lineal con su rango del 95 %. Es una hipótesis, no una predicción.',
+      scenValue: 'Escenario',
+      scenBand: 'Rango 95 %',
+    },
+    compare: {
+      title: 'Series estandarizadas y comparativa',
+      slopeTitle: 'Pendiente por década con IC 95 %',
+      slopeNote: 'Si los dos intervalos no se solapan, las pendientes son distintas.',
+    },
+    sat: {
+      scenesChartNote: 'Nubosidad de cada escena: menos nubes significa una imagen más útil.',
+      changeTitle: 'Cambio por clase entre el primer y el último año (puntos porcentuales)',
+      cloud: 'Nubosidad (%)',
+    },
+    pop: { title: 'Población: histórico, proyección ONU y ritmo lineal' },
+    rel: {
+      title: 'Relación entre clima y sociedad',
+      corrTitle: 'Correlación de Pearson: aparente frente a sin tendencia',
+      corrNote: 'Si la barra cae al quitar las tendencias, la relación aparente venía solo de que ambas series suben con el tiempo.',
+    },
+  },
+  en: {
+    chart: 'Chart',
+    table: 'Table',
+    switchLabel: 'View data as a table',
+    scale: 'Strength of evidence: 0 = no evidence; ±4 = very strong. It is the direction of change times −log10 of the Mann-Kendall p-value, capped at 4.',
+    sigLegend: 'Confirmed',
+    watchLegend: 'Under observation',
+    noneLegend: 'No trend',
+    axisZero: '0',
+    trend: {
+      descTitle: 'Descriptive statistics of the annual series',
+      forestTitle: 'Comparative method: slope per decade with 95% CI',
+      forestNote: 'The vertical line marks 0: if the interval crosses it, that test sees no change distinguishable from noise.',
+      residTitle: 'Data by year: residual from the fitted trend',
+      residNote: 'Bars up: the year was higher than the trend; bars down, lower.',
+      residAbove: 'Above trend',
+      residBelow: 'Below trend',
+      scenChartNote: 'Linear scenario value with its 95% range. It is a hypothesis, not a prediction.',
+      scenValue: 'Scenario',
+      scenBand: '95% range',
+    },
+    compare: {
+      title: 'Standardized series and comparison',
+      slopeTitle: 'Slope per decade with 95% CI',
+      slopeNote: 'If the two intervals do not overlap, the slopes are different.',
+    },
+    sat: {
+      scenesChartNote: 'Cloud cover of each scene: fewer clouds means a more useful image.',
+      changeTitle: 'Change by class between the first and last year (percentage points)',
+      cloud: 'Cloud cover (%)',
+    },
+    pop: { title: 'Population: observed, UN projection and linear pace' },
+    rel: {
+      title: 'Climate and society relationship',
+      corrTitle: 'Pearson correlation: apparent vs detrended',
+      corrNote: 'If the bar drops once trends are removed, the apparent link came only from both series rising over time.',
+    },
+  },
+} as const
