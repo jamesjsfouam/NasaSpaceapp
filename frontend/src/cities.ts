@@ -13,11 +13,17 @@ export type CityPayload = {
   base_year: number
   years: number[]
   density: string
+  /** Escenario por defecto (integrado: clima + sociedad). */
   added: string
+  /** Escenario solo con población urbana. */
+  added_base?: string
   water: string
   new_cell_density: number
+  scenarios?: { default: 'integrated' | 'population_only' } & Record<string, string>
+  drivers?: CityDrivers
   stats: {
     built_km2: Record<string, number>
+    built_km2_population_only?: Record<string, number>
     urban_population_million?: Record<string, number>
     beta: number
     beta_fitted: number
@@ -35,6 +41,42 @@ export type CityPayload = {
   sources: string[]
   method: string
   caveats: string[]
+}
+
+export type DriverRow = {
+  urban_population_million: number
+  gdp_per_capita_usd: number
+  agricultural_employment_share: number
+  delta_temperature_c: number
+  delta_soil_wetness: number
+  delta_rain_fraction: number
+  heat_stress: number
+  drought_stress: number
+  climate_stress: number
+  migration_push_multiplier: number
+  built_km2_integrated: number
+  built_km2_population_only: number
+}
+
+export type ClimateDriver = {
+  label: string
+  unit: string
+  full_period: { start: number; verdict: 'significant' | 'not_yet' | 'no_trend'; slope_per_decade: number; mk_p: number }
+  pettitt_p: number
+  break_year: number | null
+  break_detected: boolean
+  used_period_start: number
+  verdict: 'significant' | 'not_yet' | 'no_trend'
+  slope_per_decade: number
+  weight: number
+}
+
+export type CityDrivers = {
+  table: Record<string, DriverRow>
+  climate: Record<string, ClimateDriver>
+  social: Record<string, number>
+  assumptions: Record<string, number | Record<string, number>>
+  sensitivity_built_km2_2050: Record<string, number>
 }
 
 export const MAX_CITY_KM = 30
