@@ -38,7 +38,7 @@ export function TrendTables({ trend: t, lang }: { trend: Trend; lang: Lang }) {
   const descCols: Column<DescRow>[] = [
     { id: 'label', header: tt.descCols[0], cell: (r) => r.label, csv: (r) => r.label },
     { id: 'value', header: tt.descCols[1], align: 'right', cell: (r) => r.value, csv: (r) => r.raw },
-    { id: 'read', header: tt.descCols[2], cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
+    { id: 'read', header: tt.descCols[2], cellClass: 'read', cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
   ]
 
   // --- (b) método comparativo
@@ -67,7 +67,7 @@ export function TrendTables({ trend: t, lang }: { trend: Trend; lang: Lang }) {
     { id: 'slope', header: tt.methodCols[1], align: 'right', cell: (r) => r.slope, csv: (r) => r.slopeRaw },
     { id: 'ci', header: tt.methodCols[2], align: 'right', cell: (r) => r.ci, csv: (r) => r.ci },
     { id: 'p', header: tt.methodCols[3], align: 'right', cell: (r) => r.p, csv: (r) => r.pRaw },
-    { id: 'read', header: tt.methodCols[4], cell: (r) => r.read, csv: (r) => r.read },
+    { id: 'read', header: tt.methodCols[4], cellClass: 'read', cell: (r) => r.read, csv: (r) => r.read },
   ]
 
   // --- (c) datos por año con medias por década
@@ -175,7 +175,7 @@ export function AdvancedTests({ trend: t, lang }: { trend: Trend; lang: Lang }) 
   const cols: Column<AdvRow>[] = [
     { id: 'test', header: tt.advCols[0], cell: (r) => r.test, csv: (r) => r.test },
     { id: 'result', header: tt.advCols[1], cell: (r) => r.result, csv: (r) => r.result },
-    { id: 'read', header: tt.advCols[2], cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
+    { id: 'read', header: tt.advCols[2], cellClass: 'read', cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
   ]
   return (
     <div className="stat-sub">

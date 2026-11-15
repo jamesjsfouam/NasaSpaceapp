@@ -177,7 +177,7 @@ export function ComparePlaces({
     { id: 'm', header: tc.relCols[0], cell: (r) => r.measure, csv: (r) => r.measure },
     { id: 'v', header: tc.relCols[1], align: 'right', cell: (r) => r.value, csv: (r) => r.raw },
     { id: 'p', header: tc.relCols[2], align: 'right', cell: (r) => r.p, csv: (r) => r.praw },
-    { id: 'r', header: tc.relCols[3], cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
+    { id: 'r', header: tc.relCols[3], cellClass: 'read', cell: (r) => <span className="muted">{r.read}</span>, csv: (r) => r.read },
   ]
 
   return (

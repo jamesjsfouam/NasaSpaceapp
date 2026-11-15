@@ -632,12 +632,16 @@ button.secondary:hover:not(:disabled), .btn.ghost:hover:not(:disabled) { backgro
 .table-wrap:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; border-radius: 4px; }
 .table-wrap.sticky thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.data-table th { text-align: left; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--navy); white-space: nowrap; }
+.data-table th { text-align: left; font-size: 0.78rem; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--muted); padding: 8px 12px 8px 0; border-bottom: 1px solid var(--navy); white-space: nowrap; }
 .data-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
 .data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-right: 16px; }
-.data-table td.read { color: var(--ink-2); min-width: 220px; }
+.data-table td.read { color: var(--ink-2); min-width: 240px; white-space: normal; }
 .data-table tr.row-summary td { font-weight: 700; border-top: 2px solid var(--cyan); border-bottom: 1px solid var(--cyan); }
 .data-table tr.row-agree td { font-weight: 600; }
 .table-actions { display: flex; justify-content: flex-end; padding-top: 6px; }
 .table-actions .link { font-size: 0.82rem; font-weight: 700; }
 .table-note { margin: 6px 0 0; font-size: 0.8rem; color: var(--muted); }
+
+/* geolocalización y fondo de calles */
+.map-search .map-search-row { grid-template-columns: 1fr auto auto; }
+.map-geo-msg { margin: 8px 0 0; padding: 6px 14px; background: #fff; border-radius: 999px; box-shadow: var(--shadow); font-size: 0.8rem; color: var(--navy); width: fit-content; max-width: 100%; }

@@ -25,7 +25,7 @@ export type GlobeData = {
   cells: GlobeCell[]
 }
 
-export type Basemap = 'light' | 'satellite' | 'night'
+export type Basemap = 'light' | 'streets' | 'satellite' | 'night'
 export type CameraCmd = { kind: 'global' | 'center' | 'zone' | 'in' | 'out'; seq: number }
 
 const VERDICT_TIP: Record<Lang, [string, string, string]> = {
@@ -67,6 +67,11 @@ const STYLE: StyleSpecification = {
       type: 'raster', tileSize: 256, maxzoom: 16,
       tiles: [`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`],
     },
+    streets: {
+      type: 'raster', tileSize: 256, maxzoom: 19,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      attribution: '© OpenStreetMap contributors',
+    },
     night: {
       type: 'raster', tileSize: 256, maxzoom: 8,
       tiles: [`${GIBS}/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`],
@@ -81,6 +86,7 @@ const STYLE: StyleSpecification = {
       paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 3.5, 0, 5.8, 1] },
     },
     { id: 'night', type: 'raster', source: 'night', layout: { visibility: 'none' } },
+    { id: 'streets', type: 'raster', source: 'streets', layout: { visibility: 'none' } },
   ],
 }
 // Las etiquetas van por encima de la malla de tendencias para que los nombres sigan legibles.
@@ -90,6 +96,7 @@ const LABEL_LAYERS: { id: string; source: string; minzoom: number; basemap: Base
 ]
 const BASE_LAYERS: Record<Basemap, string[]> = {
   light: ['light', 'light-labels'],
+  streets: ['streets'],
   satellite: ['day', 'detail', 'sat-labels'],
   night: ['night'],
 }

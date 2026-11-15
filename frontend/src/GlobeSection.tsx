@@ -57,11 +57,12 @@ const ICheck = () => <Svg><path d="m5 12 4.5 4.5L19 7" /></Svg>
 const ILink = () => <Svg><circle cx="5" cy="17" r="2" /><circle cx="19" cy="7" r="2" /><path d="M7 16c4-1 6-5 10-8" strokeDasharray="2 3" /></Svg>
 const ISearch = () => <Svg><circle cx="11" cy="11" r="6" /><path d="m20 20-4.2-4.2" /></Svg>
 const IPin = () => <Svg><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.800 12 21 12 21Z" /><circle cx="12" cy="9.500" r="2.500" /></Svg>
+const ILocate = () => <Svg><path d="M3 11 21 3l-8 18-2-8-8-2Z" /></Svg>
 const IChevron = ({ up }: { up?: boolean }) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: up ? 'rotate(180deg)' : undefined }}><path d="m6 9 6 6 6-6" /></svg>
 )
 
-const BASEMAPS: Basemap[] = ['light', 'satellite', 'night']
+const BASEMAPS: Basemap[] = ['light', 'streets', 'satellite', 'night']
 
 /** Fase 2: el planeta a pantalla completa. Paneles flotantes sobre un mapa que ocupa toda la pantalla. */
 export function GlobeSection(props: Props) {
@@ -123,6 +124,51 @@ export function GlobeSection(props: Props) {
     setTimeout(() => fly('zone'), 40)
   }
 
+  // "Usar mi ubicación": geolocalización del navegador (solo al pulsar) + nombre del lugar con Nominatim (OSM).
+  const [geoBusy, setGeoBusy] = useState(false)
+  const [geoMsg, setGeoMsg] = useState<string | null>(null)
+  function locateMe() {
+    if (!('geolocation' in navigator)) {
+      setGeoMsg(es ? 'Tu navegador no ofrece geolocalización.' : 'Your browser does not support geolocation.')
+      return
+    }
+    setGeoBusy(true)
+    setGeoMsg(null)
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lon } = pos.coords
+        let label = `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${lat}&lon=${lon}&accept-language=${lang}`,
+          )
+          if (r.ok) {
+            const j = (await r.json()) as { name?: string; address?: Record<string, string> }
+            const a = j.address ?? {}
+            const place = j.name || a.city || a.town || a.village || a.municipality || a.county || a.state
+            if (place) label = a.country && a.country !== place ? `${place}, ${a.country}` : place
+          }
+        } catch {
+          /* sin nombre: se usan las coordenadas */
+        }
+        pickFromSearch({ lat, lon }, label)
+        setGeoMsg(es ? `Ubicación fijada: ${label}.` : `Location set: ${label}.`)
+        setGeoBusy(false)
+      },
+      (err) => {
+        setGeoBusy(false)
+        setGeoMsg(
+          err.code === err.PERMISSION_DENIED
+            ? (es ? 'Permiso de ubicación denegado. Actívalo en el navegador o busca un lugar a mano.' : 'Location permission denied. Enable it in your browser or search for a place.')
+            : err.code === err.TIMEOUT
+              ? (es ? 'La ubicación tardó demasiado. Inténtalo de nuevo.' : 'Locating took too long. Try again.')
+              : (es ? 'No se pudo obtener tu ubicación.' : 'Could not get your location.'),
+        )
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
+    )
+  }
+
   function pickFromGlobe(lat: number, lon: number) {
     setSpin(false)
     onPickPlace({ lat, lon }, undefined, true)
@@ -139,6 +185,7 @@ export function GlobeSection(props: Props) {
   const classes = meta ? legendClasses(layerVar, scale) : []
   const basemapLabel: Record<Basemap, string> = {
     light: es ? 'Mapa' : 'Map',
+    streets: es ? 'Calles' : 'Streets',
     satellite: es ? 'Satélite' : 'Satellite',
     night: es ? 'Noche' : 'Night',
   }
@@ -226,7 +273,13 @@ export function GlobeSection(props: Props) {
               aria-label={t.searchBtn} title={t.searchBtn}>
               <ISearch />
             </button>
+            <button type="button" className="icon-btn" onClick={locateMe} disabled={geoBusy}
+              aria-label={es ? 'Usar mi ubicación' : 'Use my location'}
+              title={es ? 'Usar mi ubicación (se envía a OpenStreetMap solo para obtener el nombre del lugar)' : 'Use my location (sent to OpenStreetMap only to look up the place name)'}>
+              <ILocate />
+            </button>
           </div>
+          {geoMsg && <p className="map-geo-msg" role="status">{geoMsg}</p>}
           {found.length > 0 && (
             <ul className="map-results">
               {found.map((p) => (

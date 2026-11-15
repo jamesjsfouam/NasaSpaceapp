@@ -6,6 +6,8 @@ export type Column<R> = {
   /** Cabecera para el CSV (por defecto, el texto de `header` o el id). */
   csvHeader?: string
   align?: 'left' | 'right'
+  /** Clase extra para las celdas de esta columna (p. ej. 'read' para texto largo). */
+  cellClass?: string
   cell: (row: R, index: number) => ReactNode
   /** Valor crudo para el CSV; si falta, la columna se omite del archivo. */
   csv?: (row: R) => string | number | null | undefined
@@ -72,7 +74,7 @@ export function DataTable<R>({
             {rows.map((r, i) => (
               <tr key={rowKey(r, i)} className={rowClass?.(r)}>
                 {columns.map((c) => (
-                  <td key={c.id} className={c.align === 'right' ? 'num' : undefined}>{c.cell(r, i)}</td>
+                  <td key={c.id} className={[c.align === 'right' ? 'num' : '', c.cellClass ?? ''].filter(Boolean).join(' ') || undefined}>{c.cell(r, i)}</td>
                 ))}
               </tr>
             ))}
