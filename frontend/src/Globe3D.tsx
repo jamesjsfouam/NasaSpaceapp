@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import maplibregl, { type GeoJSONSource, type StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { cellColor } from './globeColors'
+import { COLOR } from './theme'
 import { fmtNum, shortVarName, tUnit, type Lang } from './i18n'
 
 export type GlobeVariable = {
@@ -24,7 +25,8 @@ export type GlobeData = {
   cells: GlobeCell[]
 }
 
-export type CameraCmd = { kind: 'global' | 'center' | 'zone'; seq: number }
+export type Basemap = 'light' | 'satellite' | 'night'
+export type CameraCmd = { kind: 'global' | 'center' | 'zone' | 'in' | 'out'; seq: number }
 
 const VERDICT_TIP: Record<Lang, [string, string, string]> = {
   es: ['Sin tendencia clara', 'Todavía no significativa', 'Tendencia significativa'],
@@ -33,46 +35,63 @@ const VERDICT_TIP: Record<Lang, [string, string, string]> = {
 
 const GIBS = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best'
 
-// Unified 3D Globe: NASA GIBS Blue Marble / VIIRS Black Marble from orbit,
-// transitioning smoothly to Esri World Imagery when zooming into cities and zones.
+// Mapa único: base clara de Esri (por defecto, como un atlas), imagen satelital de la NASA (Blue Marble
+// de lejos, Esri World Imagery de cerca) y la vista nocturna VIIRS Black Marble. El planeta es el mismo
+// en todas: se gira, se acerca hasta una zona y la malla de tendencias queda encima.
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services'
 const STYLE: StyleSpecification = {
   version: 8,
   projection: { type: 'globe' },
-  sky: { 'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 0, 1, 5, 1, 7, 0] },
+  sky: { 'atmosphere-blend': 0 },
   sources: {
+    light: {
+      type: 'raster', tileSize: 256, maxzoom: 16,
+      tiles: [`${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`],
+      attribution: 'Esri, HERE, Garmin, © OpenStreetMap contributors',
+    },
+    lightLabels: {
+      type: 'raster', tileSize: 256, maxzoom: 16,
+      tiles: [`${ESRI}/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`],
+    },
     day: {
-      type: 'raster',
-      tileSize: 256,
-      maxzoom: 8,
+      type: 'raster', tileSize: 256, maxzoom: 8,
       tiles: [`${GIBS}/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg`],
       attribution: 'NASA GIBS · Blue Marble',
     },
     detail: {
-      type: 'raster',
-      tileSize: 256,
-      maxzoom: 18,
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+      type: 'raster', tileSize: 256, maxzoom: 18,
+      tiles: [`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`],
       attribution: 'Esri World Imagery',
     },
+    satLabels: {
+      type: 'raster', tileSize: 256, maxzoom: 16,
+      tiles: [`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`],
+    },
     night: {
-      type: 'raster',
-      tileSize: 256,
-      maxzoom: 8,
+      type: 'raster', tileSize: 256, maxzoom: 8,
       tiles: [`${GIBS}/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png`],
       attribution: 'NASA GIBS · VIIRS Black Marble',
     },
   },
   layers: [
-    { id: 'day', type: 'raster', source: 'day' },
+    { id: 'light', type: 'raster', source: 'light' },
+    { id: 'day', type: 'raster', source: 'day', layout: { visibility: 'none' } },
     {
-      id: 'detail',
-      type: 'raster',
-      source: 'detail',
-      minzoom: 3.5,
+      id: 'detail', type: 'raster', source: 'detail', minzoom: 3.5, layout: { visibility: 'none' },
       paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 3.5, 0, 5.8, 1] },
     },
     { id: 'night', type: 'raster', source: 'night', layout: { visibility: 'none' } },
   ],
+}
+// Las etiquetas van por encima de la malla de tendencias para que los nombres sigan legibles.
+const LABEL_LAYERS: { id: string; source: string; minzoom: number; basemap: Basemap }[] = [
+  { id: 'light-labels', source: 'lightLabels', minzoom: 2, basemap: 'light' },
+  { id: 'sat-labels', source: 'satLabels', minzoom: 3, basemap: 'satellite' },
+]
+const BASE_LAYERS: Record<Basemap, string[]> = {
+  light: ['light', 'light-labels'],
+  satellite: ['day', 'detail', 'sat-labels'],
+  night: ['night'],
 }
 
 type SpotPin = { lat: number; lon: number; label?: string }
@@ -99,7 +118,8 @@ type Props = {
   data: GlobeData
   variable: string
   onlySignificant: boolean
-  night: boolean
+  basemap: Basemap
+  flat?: boolean
   showTeleconnections?: boolean
   lang: Lang
   onPick: (lat: number, lon: number) => void
@@ -113,7 +133,8 @@ export function Globe3D({
   data,
   variable,
   onlySignificant,
-  night,
+  basemap,
+  flat = false,
   showTeleconnections = false,
   lang,
   onPick,
@@ -131,7 +152,7 @@ export function Globe3D({
       features.push({
         type: 'Feature',
         id: 'spot-a',
-        properties: { color: '#3fd0e6', role: 'A' },
+        properties: { color: COLOR.spotA, role: 'A' },
         geometry: { type: 'Point', coordinates: [focus.lon, focus.lat] },
       })
     }
@@ -139,7 +160,7 @@ export function Globe3D({
       features.push({
         type: 'Feature',
         id: 'spot-b',
-        properties: { color: '#f59e42', role: 'B' },
+        properties: { color: COLOR.spotB, role: 'B' },
         geometry: { type: 'Point', coordinates: [second.lon, second.lat] },
       })
     }
@@ -165,7 +186,7 @@ export function Globe3D({
             slope: v[0],
             verdict: v[2],
             fdr: v[4],
-            color: cellColor(variable, v[0], scale, v[4] ? 0.22 + 0.54 * Math.min(1, Math.abs(v[0] / scale)) : 0.06),
+            color: cellColor(variable, v[0], scale, v[4] ? 0.86 : 0.1),
           },
           geometry: { type: 'Polygon' as const, coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] },
         }]
@@ -176,6 +197,7 @@ export function Globe3D({
   const live = useRef({
     onPick,
     spinEnabled,
+    flat,
     lang,
     variable,
     meta: data.variables[variable],
@@ -186,6 +208,7 @@ export function Globe3D({
     Object.assign(live.current, {
       onPick,
       spinEnabled,
+      flat,
       lang,
       variable,
       meta: data.variables[variable],
@@ -199,12 +222,11 @@ export function Globe3D({
       container: wrapRef.current!,
       style: STYLE,
       center: [focus?.lon ?? -60, focus?.lat ?? 12],
-      zoom: 1.95,
+      zoom: flat ? 1.6 : 2.3,
       maxZoom: 12,
       attributionControl: { compact: true },
     })
     mapRef.current = map
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
     const popup = new maplibregl.Popup({
       closeButton: false,
       closeOnClick: false,
@@ -214,7 +236,7 @@ export function Globe3D({
 
     let interacting = false
     const spin = () => {
-      if (interacting || !live.current.spinEnabled || map.getZoom() > 2.6) return
+      if (interacting || !live.current.spinEnabled || live.current.flat || map.getZoom() > 2.6) return
       const c = map.getCenter()
       map.easeTo({ center: [c.lng - 3.2, c.lat], duration: 1000, easing: (t) => t })
     }
@@ -245,7 +267,7 @@ export function Globe3D({
           'fill-color': ['to-color', ['get', 'color']],
           'fill-antialias': false,
           // Smoothly reveal underlying satellite terrain as the user zooms into a region
-          'fill-opacity': ['interpolate', ['linear'], ['zoom'], 2, 1, 4.2, 0.72, 6.2, 0.22, 8.5, 0.08],
+          'fill-opacity': ['interpolate', ['linear'], ['zoom'], 2, 1, 5, 0.92, 7, 0.6, 9, 0.38],
         },
       })
       map.addLayer({
@@ -253,7 +275,7 @@ export function Globe3D({
         type: 'line',
         source: 'cells',
         paint: {
-          'line-color': 'rgba(255,255,255,0.08)',
+          'line-color': 'rgba(28,16,30,0.14)',
           'line-width': 0.5,
           'line-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.4, 5.5, 0.7, 9, 0.3],
         },
@@ -263,11 +285,18 @@ export function Globe3D({
         type: 'line',
         source: 'cells',
         paint: {
-          'line-color': '#ffffff',
+          'line-color': '#1c101e',
           'line-width': 2,
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0],
         },
       })
+
+      for (const l of LABEL_LAYERS) {
+        map.addLayer({
+          id: l.id, type: 'raster', source: l.source, minzoom: l.minzoom,
+          layout: { visibility: l.basemap === 'light' ? 'visible' : 'none' },
+        })
+      }
 
       map.addSource('teleconnections', { type: 'geojson', data: TELECONNECTIONS })
       map.addLayer({
@@ -276,7 +305,7 @@ export function Globe3D({
         source: 'teleconnections',
         layout: { visibility: showTeleconnections ? 'visible' : 'none' },
         paint: {
-          'line-color': '#a78bfa',
+          'line-color': '#7a4cd1',
           'line-width': 2.2,
           'line-dasharray': [2, 2],
           'line-opacity': 0.85,
@@ -291,7 +320,7 @@ export function Globe3D({
         paint: {
           'circle-radius': 14,
           'circle-color': ['get', 'color'],
-          'circle-opacity': 0.25,
+          'circle-opacity': 0.22,
           'circle-stroke-width': 2,
           'circle-stroke-color': ['get', 'color'],
         },
@@ -304,7 +333,7 @@ export function Globe3D({
           'circle-radius': 5.5,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#040812',
+          'circle-stroke-color': '#ffffff',
         },
       })
 
@@ -384,12 +413,22 @@ export function Globe3D({
     const map = mapRef.current
     if (!map) return
     const apply = () => {
-      map.setLayoutProperty('night', 'visibility', night ? 'visible' : 'none')
-      for (const id of ['day', 'detail']) map.setLayoutProperty(id, 'visibility', night ? 'none' : 'visible')
+      const visible = new Set(BASE_LAYERS[basemap])
+      for (const id of Object.values(BASE_LAYERS).flat()) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible.has(id) ? 'visible' : 'none')
+      }
     }
     if (map.isStyleLoaded()) apply()
     else map.once('load', apply)
-  }, [night])
+  }, [basemap])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const apply = () => map.setProjection({ type: flat ? 'mercator' : 'globe' })
+    if (map.isStyleLoaded()) apply()
+    else map.once('load', apply)
+  }, [flat])
 
   useEffect(() => {
     const map = mapRef.current
@@ -407,9 +446,13 @@ export function Globe3D({
     const map = mapRef.current
     if (!map || !cameraCmd) return
     if (cameraCmd.kind === 'global') {
-      map.flyTo({ center: [focus?.lon ?? -60, focus?.lat ?? 12], zoom: 1.9, duration: 1100 })
+      map.flyTo({ center: [focus?.lon ?? -60, focus?.lat ?? 12], zoom: flat ? 1.6 : 2.3, duration: 1100 })
     } else if (cameraCmd.kind === 'zone' && focus) {
       map.flyTo({ center: [focus.lon, focus.lat], zoom: 6.8, duration: 1300 })
+    } else if (cameraCmd.kind === 'in') {
+      map.zoomTo(Math.min(12, map.getZoom() + 1), { duration: 400 })
+    } else if (cameraCmd.kind === 'out') {
+      map.zoomTo(Math.max(1, map.getZoom() - 1), { duration: 400 })
     } else if (cameraCmd.kind === 'center' && focus) {
       map.flyTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 4.2), duration: 1000 })
     }

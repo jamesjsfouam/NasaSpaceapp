@@ -8,6 +8,8 @@ import {
 import { ComparePlaces } from './ComparePlaces'
 import { DemographyView } from './DemographyView'
 import { ExplainPanel } from './Explain'
+import { Wordmark } from './Logo'
+import { BrandPattern } from './BrandPattern'
 import { GlobeSection, type SecondSpot, type Spot } from './GlobeSection'
 import {
   certaintyInfo, CONCERNS_EN, fmtNum, fmtProb, formatForecastText, humanVerdictSummary,
@@ -31,6 +33,7 @@ const MONTE_CARLO_ROWS = [
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('briefing')
+  const [drawerWide, setDrawerWide] = useState(false)
   const [lang, setLang] = useState<Lang>('es')
   const [weatherNow, setWeatherNow] = useState<{ key: string; tempC: number; uv?: number } | null>(null)
 
@@ -288,16 +291,15 @@ export default function App() {
   const activeVar = activeVarRaw ? tVariable(activeVarRaw, lang) : null
 
   return (
-    <div className="app-shell">
-      {/* Sticky Top Navigation Bar */}
+    <div className="app-shell" data-phase={phase}>
+      <a className="skip-link" href="#contenido">{lang === 'es' ? 'Saltar al contenido' : 'Skip to content'}</a>
       <header className="topbar">
         <div className="topbar-inner">
-          <button type="button" className="brand-btn" onClick={() => switchPhase('briefing')}>
-            <span className="brand-logo">VERDICT</span>
-            <span className="brand-sub">{t.brandSub}</span>
+          <button type="button" className="brand-btn" onClick={() => switchPhase('briefing')} aria-label={`DATEX · ${t.brandSub}`}>
+            <Wordmark height={26} />
           </button>
 
-          <nav className="phase-nav" aria-label="Phases">
+          <nav className="phase-nav" aria-label={lang === 'es' ? 'Fases' : 'Phases'}>
             {(['briefing', 'planet', 'studio'] as Phase[]).map((p) => {
               const item = t.phases[p]
               const active = phase === p
@@ -318,15 +320,15 @@ export default function App() {
           </nav>
 
           <div className="topbar-controls">
-            <div className="segmented">
-              <button type="button" className={lang === 'es' ? 'on' : ''} onClick={() => setLang('es')}>ES</button>
-              <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
+            <div className="segmented" role="group" aria-label={lang === 'es' ? 'Idioma' : 'Language'}>
+              <button type="button" className={lang === 'es' ? 'on' : ''} aria-pressed={lang === 'es'} onClick={() => setLang('es')}>ES</button>
+              <button type="button" className={lang === 'en' ? 'on' : ''} aria-pressed={lang === 'en'} onClick={() => setLang('en')}>EN</button>
             </div>
           </div>
         </div>
       </header>
 
-      <main>
+      <main id="contenido" className={phase === 'briefing' ? 'main-page' : `main-full has-map${phase === 'studio' ? ' has-drawer' : ''}${drawerWide ? ' drawer-wide' : ''}`}>
         {error && <p className="error" role="alert">{error}</p>}
         {!cat && !error && <p className="muted">{lang === 'es' ? 'Cargando catálogo NASA…' : 'Loading NASA catalog…'}</p>}
 
@@ -334,140 +336,144 @@ export default function App() {
         {/* PHASE 1: BRIEFING & METHOD                                            */}
         {/* ===================================================================== */}
         {phase === 'briefing' && (
-          <div className="phase-stack">
-            <section className="briefing-hero">
-              <div className="briefing-copy">
-                <span className="kicker-pill">{t.phase1.kicker}</span>
-                <h1 className="hero-title">{t.phase1.headline}</h1>
-                <p className="hero-sub">{t.phase1.sub}</p>
-                <div className="hero-ctas">
-                  <button type="button" className="primary cta-lg" onClick={() => switchPhase('planet')}>
+          <div className="lp">
+            <section className="lp-hero">
+              <BrandPattern className="lp-hero-art" cols={7} rows={6} seed={11} />
+              <div className="lp-wrap">
+                <p className="eyebrow">{t.phase1.kicker}</p>
+                <h1 className="lp-title">{t.phase1.headline}</h1>
+                <div className="lp-ctas">
+                  <button type="button" className="pill-cta" onClick={() => switchPhase('planet')}>
                     {t.phase1.ctaPlanet}
                   </button>
                   <button
                     type="button"
-                    className="secondary cta-lg"
+                    className="pill-cta ghost"
                     onClick={() => document.getElementById('briefing-demos')?.scrollIntoView({ behavior: 'smooth' })}
                   >
                     {t.phase1.ctaCases}
                   </button>
                 </div>
               </div>
+            </section>
 
-              <div className="hero-telemetry">
-                <div className="telemetry-tile">
-                  <span>{t.phase1.stats.vars}</span>
-                  <strong className="num">{cat ? cat.variables.length : 14}</strong>
-                  <em>{t.phase1.stats.varsSub}</em>
-                </div>
-                <div className="telemetry-tile">
-                  <span>{t.phase1.stats.years}</span>
-                  <strong className="num">{cat ? cat.last_year - cat.first_year + 1 : 45}</strong>
-                  <em>{t.phase1.stats.yearsSub}</em>
-                </div>
-                <div className="telemetry-tile">
-                  <span>{t.phase1.stats.cells}</span>
-                  <strong className="num">2,592</strong>
-                  <em>{t.phase1.stats.cellsSub}</em>
-                </div>
-                <div className="telemetry-tile">
-                  <span>{t.phase1.stats.countries}</span>
-                  <strong className="num">{cat ? Object.keys(cat.countries).length : 249}</strong>
-                  <em>{t.phase1.stats.countriesSub}</em>
-                </div>
+            <section className="lp-lead">
+              <div className="lp-wrap lp-lead-grid">
+                <p className="lp-serif">{t.phase1.sub}</p>
+                <dl className="lp-stats">
+                  <div>
+                    <dt>{t.phase1.stats.vars}</dt>
+                    <dd className="num">{cat ? cat.variables.length : 17}</dd>
+                    <dd className="sub">{t.phase1.stats.varsSub}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.phase1.stats.years}</dt>
+                    <dd className="num">{cat ? cat.last_year - cat.first_year + 1 : 45}</dd>
+                    <dd className="sub">{t.phase1.stats.yearsSub}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.phase1.stats.cells}</dt>
+                    <dd className="num">2,592</dd>
+                    <dd className="sub">{t.phase1.stats.cellsSub}</dd>
+                  </div>
+                  <div>
+                    <dt>{t.phase1.stats.countries}</dt>
+                    <dd className="num">{cat ? Object.keys(cat.countries).length : 249}</dd>
+                    <dd className="sub">{t.phase1.stats.countriesSub}</dd>
+                  </div>
+                </dl>
               </div>
             </section>
 
-            {/* 4 Detective Questions */}
-            <section className="editorial-section">
-              <h2 className="section-heading">{t.phase1.qTitle}</h2>
-              <div className="question-grid">
-                {t.phase1.questions.map((item) => (
-                  <article key={item.q} className="q-card">
-                    <span className="q-icon">{item.icon}</span>
-                    <h3>{item.q}</h3>
-                    <p>{item.desc}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            {/* Anti-False-Alarm Validation & Traffic Light */}
-            <div className="briefing-two-col">
-              <section className="editorial-section">
-                <h2 className="section-heading">{t.phase1.trapTitle}</h2>
-                <p className="muted" style={{ lineHeight: 1.6, marginTop: 6 }}>{t.phase1.trapDesc}</p>
-                <p className="small" style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: 8 }}>
-                  {t.phase1.trapTableTitle}
-                </p>
-                <div className="scroll">
-                  <table className="bench-table">
-                    <thead>
-                      <tr>
-                        {t.phase1.trapCols.map((col) => <th key={col}>{col}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MONTE_CARLO_ROWS.map((row) => (
-                        <tr key={row.phi}>
-                          <td className="num">φ = {lang === 'en' ? (row.phiEn ?? row.phi) : row.phi}</td>
-                          <td className="num bad-val">{lang === 'en' ? row.naiveEn : row.naive}</td>
-                          <td className="num good-val">{lang === 'en' ? row.verdictEn : row.verdict}</td>
-                          <td><span className="badge significant">{lang === 'en' ? row.tagEn : row.tagEs}</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="muted small" style={{ marginBottom: 0 }}>{t.phase1.trapNote}</p>
-              </section>
-
-              <section className="editorial-section">
-                <h2 className="section-heading">{t.phase1.semaforoTitle}</h2>
-                <div className="semaforo-list">
-                  {t.phase1.semaforo.map((item) => (
-                    <div key={item.tone} className={`semaforo-card ${item.tone}`}>
-                      <div className="row">
-                        <strong>{item.title}</strong>
-                        <span className={`badge ${item.tone}`}>{item.badge}</span>
-                      </div>
-                      <p className="small muted" style={{ margin: '6px 0 0', lineHeight: 1.5 }}>{item.desc}</p>
-                    </div>
+            <section className="lp-section">
+              <div className="lp-wrap">
+                <h2 className="lp-h2">{t.phase1.qTitle}</h2>
+                <div className="lp-cols">
+                  {t.phase1.questions.map((item, i) => (
+                    <article key={item.q}>
+                      <span className="eyebrow">{String(i + 1).padStart(2, '0')}</span>
+                      <h3>{item.q}</h3>
+                      <p>{item.desc}</p>
+                    </article>
                   ))}
                 </div>
-              </section>
-            </div>
+              </div>
+            </section>
 
-            {/* 1-Click Guided Case Studies */}
-            {cat && (
-              <section id="briefing-demos" className="editorial-section">
-                <div className="row" style={{ marginBottom: 12 }}>
+            <section className="lp-band">
+              <div className="lp-wrap">
+                <h2 className="lp-h2 lp-h2-xl">{t.phase1.trapTitle}</h2>
+                <div className="lp-band-grid">
                   <div>
-                    <h2 className="section-heading">{t.phase1.demosTitle}</h2>
-                    <p className="muted small" style={{ margin: '4px 0 0' }}>{t.phase1.demosSub}</p>
+                    <p className="lp-serif">{t.phase1.trapDesc}</p>
+                    <p className="lp-note">{t.phase1.trapNote}</p>
+                  </div>
+                  <div>
+                    <p className="eyebrow">{t.phase1.trapTableTitle}</p>
+                    <div className="scroll">
+                      <table className="bench-table">
+                        <thead>
+                          <tr>
+                            {t.phase1.trapCols.map((col) => <th key={col}>{col}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {MONTE_CARLO_ROWS.map((row) => (
+                            <tr key={row.phi}>
+                              <td className="num">φ = {lang === 'en' ? (row.phiEn ?? row.phi) : row.phi}</td>
+                              <td className="num bad-val">{lang === 'en' ? row.naiveEn : row.naive}</td>
+                              <td className="num good-val">{lang === 'en' ? row.verdictEn : row.verdict}</td>
+                              <td><span className="badge significant">{lang === 'en' ? row.tagEn : row.tagEs}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-                <div className="demo-grid">
-                  {cat.demos.map((rawD) => {
-                    const d = tDemo(rawD, lang)
-                    return (
-                      <div key={rawD.region + rawD.variable} className="demo-card">
-                        <div>
-                          <span className="demo-var-tag num">{d.variable}</span>
+              </div>
+            </section>
+
+            <section className="lp-section">
+              <div className="lp-wrap">
+                <h2 className="lp-h2">{t.phase1.semaforoTitle}</h2>
+                <div className="lp-cols lp-cols-3">
+                  {t.phase1.semaforo.map((item) => (
+                    <article key={item.tone} className={`lp-verdict ${item.tone}`}>
+                      <span className={`badge ${item.tone}`}>{item.badge}</span>
+                      <h3>{item.title}</h3>
+                      <p>{item.desc}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {cat && (
+              <section id="briefing-demos" className="lp-section lp-cases">
+                <div className="lp-wrap">
+                  <h2 className="lp-h2">{t.phase1.demosTitle}</h2>
+                  <p className="lp-sub">{t.phase1.demosSub}</p>
+                  <div className="lp-case-grid">
+                    {cat.demos.map((rawD) => {
+                      const d = tDemo(rawD, lang)
+                      return (
+                        <article key={rawD.region + rawD.variable} className="lp-case">
+                          <span className="eyebrow num">{d.variable}</span>
                           <h3>{d.title}</h3>
-                          <p className="muted small">{d.why}</p>
-                        </div>
-                        <div className="demo-actions">
-                          <button type="button" className="primary" onClick={() => openDemo(rawD, false)}>
-                            {t.phase1.demoBtn}
-                          </button>
-                          <button type="button" className="secondary" onClick={() => openDemo(rawD, true)}>
-                            {t.phase1.demoGlobeBtn}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
+                          <p>{d.why}</p>
+                          <div className="lp-case-actions">
+                            <button type="button" className="pill-cta sm" onClick={() => openDemo(rawD, false)}>
+                              {t.phase1.demoBtn}
+                            </button>
+                            <button type="button" className="link" onClick={() => openDemo(rawD, true)}>
+                              {t.phase1.demoGlobeBtn}
+                            </button>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
                 </div>
               </section>
             )}
@@ -477,7 +483,7 @@ export default function App() {
         {/* ===================================================================== */}
         {/* PHASE 2: UNIFIED 3D PLANET EXPLORER                                   */}
         {/* ===================================================================== */}
-        {phase === 'planet' && (
+        {(phase === 'planet' || phase === 'studio') && (
           <GlobeSection
             cat={cat}
             lang={lang}
@@ -510,16 +516,17 @@ export default function App() {
         )}
 
         {/* ===================================================================== */}
-        {/* PHASE 3: VERDICT & ANALYTICS STUDIO                                   */}
+        {/* PHASE 3: DATEX & ANALYTICS STUDIO                                   */}
         {/* ===================================================================== */}
         {phase === 'studio' && query && cat && (
+          <aside className="studio-drawer" aria-label={lang === 'es' ? 'Análisis estadístico del lugar' : 'Statistical analysis of the place'}>
           <div className="phase-stack" aria-live="polite">
             {/* Sticky Zone Context Header */}
             <section className="studio-context-bar">
               <div className="studio-context-left">
                 <span className="zone-tag">{t.phase2.selectedBadge}</span>
                 <div className="studio-place-row">
-                  <h2>📍 {query.spot.label}</h2>
+                  <h2>{query.spot.label}</h2>
                   <span className="num muted small">
                     {query.spot.lat.toFixed(2)}°, {query.spot.lon.toFixed(2)}°
                   </span>
@@ -556,6 +563,9 @@ export default function App() {
                 </select>
                 <button type="button" className="secondary" onClick={() => switchPhase('planet')}>
                   {t.phase3.backToPlanet}
+                </button>
+                <button type="button" className="secondary drawer-size" aria-pressed={drawerWide} onClick={() => setDrawerWide((v) => !v)}>
+                  {drawerWide ? (lang === 'es' ? 'Reducir panel' : 'Narrow panel') : (lang === 'es' ? 'Ampliar panel' : 'Widen panel')}
                 </button>
                 <button type="button" className="secondary" onClick={() => openTab('compare')}>
                   {t.phase3.compareShortcut}
@@ -652,10 +662,11 @@ export default function App() {
               />
             )}
           </div>
+          </aside>
         )}
 
-        {cat && (
-          <footer className="muted small">
+        {cat && phase === 'briefing' && (
+          <footer className="site-footer">
             {lang === 'es'
               ? cat.data_note
               : 'Data source: NASA POWER (MERRA-2 reanalysis & CERES satellite observations), Microsoft Planetary Computer (Landsat/Sentinel-2), UN World Population Prospects (OWID), and World Bank. Each POWER point represents a ~50 × 60 km grid cell — confirm local findings with independent station or satellite sensors.'}
@@ -824,7 +835,7 @@ function TrendView({
           <div className="scenario-result">
             <p style={{ margin: '8px 0 4px' }}>{formatForecastText(scenario, varLabel, t.unit, lang)}</p>
             {scenario.warnings.map((w) => (
-              <p key={w} className="muted small" style={{ margin: '2px 0' }}>⚠ {translateWarning(w, lang)}</p>
+              <p key={w} className="muted small" style={{ margin: '2px 0' }}>{translateWarning(w, lang)}</p>
             ))}
           </div>
         )}
