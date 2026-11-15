@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, DIRECTION_ARROW, type Place, type Region, type TrendResponse } from './api'
 import {
-  certaintyInfo, fmtNum, pTextLang, tRegion, tUnit, verdictLabel, type AudienceMode, type Lang,
+  certaintyInfo, fmtNum, tRegion, tUnit, verdictLabel, type Lang,
 } from './i18n'
 
 type Spot = { lat: number; lon: number; label: string }
@@ -16,7 +16,6 @@ export function ComparePlaces({
   onSecond,
   regions,
   lang,
-  mode,
   onPickOnGlobe,
 }: {
   variable: string
@@ -26,7 +25,6 @@ export function ComparePlaces({
   onSecond: (s: Spot | null) => void
   regions: Region[]
   lang: Lang
-  mode: AudienceMode
   onPickOnGlobe: () => void
 }) {
   const [q, setQ] = useState('')
@@ -176,22 +174,15 @@ export function ComparePlaces({
                 <div key={i} className={`verdict ${t.verdict} ${i === 0 ? 'side-a' : 'side-b'}`}>
                   <div className="row">
                     <h3>{i === 0 ? a.label : b.label}</h3>
-                    <span className={`badge ${t.verdict}`}>{verdictLabel(t.verdict, lang, mode)}</span>
+                    <span className={`badge ${t.verdict}`}>{verdictLabel(t.verdict, lang)}</span>
                   </div>
                   <p className="compare-rate num">
                     {DIRECTION_ARROW[t.direction]} {t.slope_per_decade > 0 ? '+' : ''}
                     {fmtNum(t.slope_per_decade, lang)} {unit} {copy.perDec}
                   </p>
-                  {mode === 'student' ? (
-                    <p className="muted small" style={{ margin: '4px 0 0' }}>
-                      {cert.headline} · {cert.detail}
-                    </p>
-                  ) : (
-                    <p className="small muted" style={{ margin: '4px 0 0' }}>
-                      95% CI: {fmtNum(t.ci_low_per_decade, lang)} – {fmtNum(t.ci_high_per_decade, lang)} ·{' '}
-                      {pTextLang(t.mk_p, lang)} · n_eff = {fmtNum(t.n_effective, lang, 3)}
-                    </p>
-                  )}
+                  <p className="muted small" style={{ margin: '4px 0 0' }}>
+                    {cert.headline} · {cert.detail}
+                  </p>
                 </div>
               )
             })}

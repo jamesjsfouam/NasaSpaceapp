@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, type LandCoverResponse, type SatelliteImage } from './api'
 import { ExplainPanel } from './Explain'
-import { fmtNum, formatForecastText, LANDCOVER_LABEL, translateWarning, type AudienceMode, type Lang } from './i18n'
+import { fmtNum, formatForecastText, LANDCOVER_LABEL, translateWarning, type Lang } from './i18n'
 import { SeriesChart } from './SeriesChart'
 
 const CLASS_COLORS: Record<string, string> = {
@@ -21,13 +21,11 @@ export function SatelliteView({
   lon,
   label,
   lang,
-  mode,
 }: {
   lat: number
   lon: number
   label: string
   lang: Lang
-  mode: AudienceMode
 }) {
   const [toYear, setToYear] = useState(2035)
   const spot = `${lat},${lon}`
@@ -203,7 +201,7 @@ export function SatelliteView({
             </ResponsiveContainer>
             <p className="muted small" style={{ margin: '8px 0 0' }}>
               {copy.lcNote} {fmtNum(lc.area_km2, lang, 3)} km² (Impact Observatory / Esri, 10 m).{' '}
-              {lc.warnings.map((w) => translateWarning(w, lang, mode)).join(' ')}
+              {lc.warnings.map((w) => translateWarning(w, lang)).join(' ')}
             </p>
           </div>
 
@@ -233,7 +231,7 @@ export function SatelliteView({
               </p>
               {cover.built_forecast.warnings.map((w) => (
                 <p key={w} className="muted small" style={{ margin: '2px 0' }}>
-                  ⚠ {translateWarning(w, lang, mode)}
+                  ⚠ {translateWarning(w, lang)}
                 </p>
               ))}
             </div>

@@ -606,18 +606,23 @@ function buildRelation(
   earthTrend: Trend,
   indMeta: Catalog['indicators'][number],
   wbSeries: Record<number, number>,
+  lag = 0,
+  excludeShock = false,
 ): RelateResponse['relation'] & { indicator_trend: Trend } {
   const wbPoints = Object.entries(wbSeries)
     .map(([yr, val]) => ({ year: Number(yr), mean: val }))
-    .filter((p) => p.year >= earthTrend.first_year && p.year <= earthTrend.last_year)
+    .filter((p) => p.year >= earthTrend.first_year && p.year <= earthTrend.last_year + lag)
     .sort((a, b) => a.year - b.year)
   const indRatio = Boolean((indMeta as { ratio_scale?: boolean }).ratio_scale ?? true)
   const indTrend = analyzeAnnualTrend(indMeta.key, indMeta.label, indMeta.unit, indRatio, wbPoints, [])
 
-  const earthMap = new Map((earthTrend.series?.annual ?? []).map((p) => [p.year, p.mean]))
-  const common = wbPoints
+  const earthMap = new Map((earthTrend.series?.annual ?? []).map((p) => [p.year + lag, p.mean]))
+  const shockYears = new Set([2020, 2021])
+  const overlap = wbPoints
     .filter((p) => earthMap.has(p.year))
     .map((p) => ({ year: p.year, earth: earthMap.get(p.year)!, indicator: p.mean }))
+  const excludedYears = excludeShock ? overlap.filter((p) => shockYears.has(p.year)).map((p) => p.year) : []
+  const common = excludeShock ? overlap.filter((p) => !shockYears.has(p.year)) : overlap
 
   if (common.length < 8) {
     throw new Error(`Solo hay ${common.length} años en común entre NASA POWER y Banco Mundial (se necesitan al menos 8).`)
@@ -655,6 +660,12 @@ function buildRelation(
   }))
 
   const warnings: string[] = []
+  if (lag) {
+    warnings.push(`Rezago aplicado: clima en año t comparado con indicador social en t+${lag}.`)
+  }
+  if (excludedYears.length) {
+    warnings.push(`Años de choque global excluidos del cálculo: ${excludedYears.join(', ')}.`)
+  }
   if (trendDriven) {
     warnings.push('Correlación aparente dominada por tendencias paralelas en el tiempo: al quitar la tendencia desaparece la relación año a año.')
   }
@@ -677,6 +688,8 @@ function buildRelation(
     strength,
     significant,
     trend_driven: trendDriven,
+    lag_years: lag,
+    excluded_years: excludedYears,
     interpretation,
     warnings,
     points,
@@ -1101,13 +1114,17 @@ export async function staticGet<T>(path: string, signal?: AbortSignal): Promise<
     const lat = Number(q.get('lat') ?? 0)
     const lon = Number(q.get('lon') ?? 0)
     const start = Number(q.get('start') ?? bundle.generated_start)
+    const lag = Math.max(0, Math.min(2, Number(q.get('lag') ?? 0)))
+    const excludeShock = q.get('exclude_2020_2021') === 'true'
     const ck = coordKey(lat, lon)
-    const exact = bundle.relate[`${variable}|${indicator}|${country}|${ck}|${start}`]
-    if (exact) return exact as T
-    if (start === bundle.generated_start) {
-      const snapped = matchSampleRegionKey(lat, lon, catalog)
-      if (snapped && bundle.relate[`${variable}|${indicator}|${country}|${snapped}|${start}`]) {
-        return bundle.relate[`${variable}|${indicator}|${country}|${snapped}|${start}`] as T
+    if (lag === 0 && !excludeShock) {
+      const exact = bundle.relate[`${variable}|${indicator}|${country}|${ck}|${start}`]
+      if (exact) return exact as T
+      if (start === bundle.generated_start) {
+        const snapped = matchSampleRegionKey(lat, lon, catalog)
+        if (snapped && bundle.relate[`${variable}|${indicator}|${country}|${snapped}|${start}`]) {
+          return bundle.relate[`${variable}|${indicator}|${country}|${snapped}|${start}`] as T
+        }
       }
     }
 
@@ -1117,7 +1134,7 @@ export async function staticGet<T>(path: string, signal?: AbortSignal): Promise<
       resolveTrend(variable, lat, lon, start, catalog, bundle, signal),
       fetchWorldBankSeries(country, indicator, signal),
     ])
-    const rel = buildRelation(tr.result, indMeta, wbSeries)
+    const rel = buildRelation(tr.result, indMeta, wbSeries, lag, excludeShock)
     const { indicator_trend, ...relation } = rel
     const relateResp: RelateResponse = {
       earth_source: tr.source,

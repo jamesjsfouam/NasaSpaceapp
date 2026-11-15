@@ -37,7 +37,7 @@ def test_rules_interpret_questions_without_ai(question, concern, place):
 def test_ask_endpoint_without_key_uses_rules_and_recommender():
     r = client.post("/api/ask", json={"question": "¿hace más calor en la ciudad?"}).json()
     assert r["interpretation"]["source"] == "reglas"
-    assert [v["key"] for v in r["variables"]] == ["T2M_MIN", "T2M_MAX", "T2M"]
+    assert [v["key"] for v in r["variables"]] == ["T2M_MIN", "DTR", "WBGT"]
 
 
 def test_explain_without_key_uses_template_with_engine_numbers():

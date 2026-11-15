@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type Catalog, type DemographyResponse } from './api'
 import { ExplainPanel } from './Explain'
 import {
-  fmtNum, tDemography, translateWarning, tUnit, verdictLabel, type AudienceMode, type Lang,
+  fmtNum, tDemography, translateWarning, tUnit, verdictLabel, type Lang,
 } from './i18n'
 import { SeriesChart } from './SeriesChart'
 
@@ -11,13 +11,11 @@ export function DemographyView({
   country,
   start,
   lang,
-  mode,
 }: {
   cat: Catalog
   country: string | null
   start: number
   lang: Lang
-  mode: AudienceMode
 }) {
   const [iso3, setIso3] = useState(country ?? 'NIC')
   const [indicator, setIndicator] = useState('population')
@@ -141,7 +139,7 @@ export function DemographyView({
                 {data.trend ? `${data.trend.slope_per_decade > 0 ? '+' : ''}${fmtNum(data.trend.slope_per_decade, lang)} ${copy.perDec}` : '—'}
               </strong>
               <em className="muted small">
-                {data.trend ? verdictLabel(data.trend.verdict, lang, mode) : copy.noData}
+                {data.trend ? verdictLabel(data.trend.verdict, lang) : copy.noData}
               </em>
             </div>
             <div className="kpi-card">
@@ -174,7 +172,7 @@ export function DemographyView({
           </div>
 
           {data.forecast?.warnings.map((w) => (
-            <p key={w} className="muted small">⚠ {translateWarning(w, lang, mode)}</p>
+            <p key={w} className="muted small">⚠ {translateWarning(w, lang)}</p>
           ))}
           <ExplainPanel request={{ kind: 'demography', country: iso3, indicator, start, to_year: toYear }} lang={lang} />
         </>

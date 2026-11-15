@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections import OrderedDict
 
 import httpx
 
@@ -15,9 +16,10 @@ from app.services.power import FIRST_YEAR, SAMPLES_DIR, last_full_year
 
 WB_URL = "https://api.worldbank.org/v2/country/{country}/indicator/{indicator}"
 CACHE_TTL_S = 24 * 3600
+MAX_CACHE_ENTRIES = 512
 TIMEOUT = httpx.Timeout(45.0)
 
-_cache: dict[tuple[str, str], tuple[float, dict[int, float]]] = {}
+_cache: OrderedDict[tuple[str, str], tuple[float, dict[int, float]]] = OrderedDict()
 
 
 class WorldBankUnavailable(RuntimeError):
@@ -66,6 +68,9 @@ async def get_indicator(country: str, indicator: str) -> tuple[dict[int, float],
             "El Banco Mundial no respondió y no hay muestra local para este país"
         ) from exc
     _cache[key] = (time.time(), data)
+    _cache.move_to_end(key)
+    while len(_cache) > MAX_CACHE_ENTRIES:
+        _cache.popitem(last=False)
     return data, "banco-mundial"
 
 

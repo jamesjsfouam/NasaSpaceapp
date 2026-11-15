@@ -3,7 +3,6 @@ import type {
 } from './api'
 
 export type Lang = 'es' | 'en'
-export type AudienceMode = 'student' | 'researcher'
 export type Phase = 'briefing' | 'planet' | 'studio'
 
 // --- Number formatting -----------------------------------------------------------------------
@@ -113,6 +112,21 @@ const VAR_EN: Record<string, VarTranslation> = {
     label: 'Surface pressure',
     definition: 'Weight of the air column above the ground. Tracks air masses and storm systems.',
     reliability: 'Very stable and well-observed atmospheric variable.',
+  },
+  VPD: {
+    label: 'Vapor pressure deficit (VPD)',
+    definition: 'How "thirsty" the air is compared to saturation. High VPD rapidly dries leaves and soil.',
+    reliability: 'Derived from reanalysis temperature and humidity; highly sensitive for crop stress and fire risk.',
+  },
+  DTR: {
+    label: 'Diurnal temperature range (DTR)',
+    definition: 'Difference between daily high and nighttime low temperature (T2M_MAX − T2M_MIN).',
+    reliability: 'Shrinks when nights warm faster than daytime highs.',
+  },
+  WBGT: {
+    label: 'Wet-bulb globe temp (WBGT approx.)',
+    definition: 'Combined heat-and-humidity index in shade reflecting thermal strain on the human body.',
+    reliability: 'Shade approximation without direct solar load or local wind; useful for heat-stress trends.',
   },
 }
 
@@ -294,32 +308,18 @@ export const LANDCOVER_LABEL: Record<Lang, Record<string, string>> = {
 
 // --- Statistical Simplification & Human-Friendly Explanations --------------------------------
 
-export function verdictLabel(verdict: Verdict, lang: Lang, mode: AudienceMode): string {
+export function verdictLabel(verdict: Verdict, lang: Lang): string {
   if (lang === 'es') {
-    if (mode === 'student') {
-      return {
-        significant: 'Cambio Confirmado',
-        not_yet: 'En Observación (Todavía no)',
-        no_trend: 'Estable / Variación Natural',
-      }[verdict]
-    }
     return {
-      significant: 'Tendencia significativa',
-      not_yet: 'Todavía no significativa',
-      no_trend: 'Sin tendencia clara',
-    }[verdict]
-  }
-  if (mode === 'student') {
-    return {
-      significant: 'Confirmed Change',
-      not_yet: 'Under Observation (Not Yet)',
-      no_trend: 'Stable / Natural Swings',
+      significant: 'Cambio Confirmado',
+      not_yet: 'En Observación (Todavía no)',
+      no_trend: 'Estable / Variación Natural',
     }[verdict]
   }
   return {
-    significant: 'Statistically significant',
-    not_yet: 'Not yet significant',
-    no_trend: 'No clear trend',
+    significant: 'Confirmed Change',
+    not_yet: 'Under Observation (Not Yet)',
+    no_trend: 'Stable / Natural Swings',
   }[verdict]
 }
 
@@ -366,7 +366,6 @@ export function humanVerdictSummary(
   where: string,
   varLabel: string,
   lang: Lang,
-  mode: AudienceMode,
 ): string {
   const unit = tUnit(t.unit, lang)
   const sign = t.slope_per_decade > 0 ? '+' : ''
@@ -381,10 +380,7 @@ export function humanVerdictSummary(
   if (lang === 'es') {
     const dirWord = t.direction === 'up' ? 'está subiendo' : t.direction === 'down' ? 'está bajando' : 'se mantiene sin cambio claro'
     if (t.verdict === 'significant') {
-      if (mode === 'student') {
-        return `${varLabel} en ${where} ${dirWord} de forma real y sostenida (${rate} cada década entre ${period}, un cambio acumulado de ${tot}${pctPart}). Ambas pruebas anti-falsas-alarmas coinciden: esto no parece casualidad.`
-      }
-      return `${varLabel} en ${where} presenta una tendencia significativa (${rate}/década; total ${tot}${pctPart} en ${period}). Mann-Kendall preblanqueado (${pTextLang(t.mk_p, 'es')}) y regresión con n efectivo (${fmtNum(t.n_effective, 'es', 3)} años equiv.) rechazan H₀.`
+      return `${varLabel} en ${where} ${dirWord} de forma real y sostenida (${rate} cada década entre ${period}, un cambio acumulado de ${tot}${pctPart}). Ambas pruebas anti-falsas-alarmas coinciden: esto no parece casualidad.`
     }
     if (t.verdict === 'not_yet') {
       const needPart = t.years_needed
@@ -392,27 +388,17 @@ export function humanVerdictSummary(
           ? `Con este nivel de variación natural harían falta ~${t.years_needed} años de registro para confirmarlo (actualmente tenemos ${t.n_years}).`
           : `Aunque hay ${t.n_years} años, las dos pruebas estadísticas no coinciden todavía, por eso el veredicto es prudente.`)
         : ''
-      if (mode === 'student') {
-        return `Aunque la línea parece moverse (${rate} por década en ${period}), todavía NO podemos afirmarlo con seguridad: el clima varía mucho año con año. ${needPart}`
-      }
-      return `Tendencia aún no concluyente para ${varLabel.toLowerCase()} en ${where} (${rate}/década; MK ${pTextLang(t.mk_p, 'es')}). ${needPart}`
+      return `Aunque la línea parece moverse (${rate} por década en ${period}), todavía NO podemos afirmarlo con seguridad: el clima varía mucho año con año. ${needPart}`
     }
-    if (mode === 'student') {
-      const extra = t.years_needed
-        ? ` Si existiera un cambio de este tamaño (${rate}/década), necesitaríamos unos ${t.years_needed} años de datos para distinguirlo del ruido.`
-        : ''
-      return `En ${period}, ${varLabel.toLowerCase()} en ${where} no muestra una tendencia clara: los altibajos son compatibles con la variación natural normal.${extra}`
-    }
-    return `Sin tendencia significativa en ${where} para ${period} (pendiente Theil–Sen ${rate}/década, MK ${pTextLang(t.mk_p, 'es')}). Compatible con ruido estacionario o AR(1).`
+    const extra = t.years_needed
+      ? ` Si existiera un cambio de este tamaño (${rate}/década), necesitaríamos unos ${t.years_needed} años de datos para distinguirlo del ruido.`
+      : ''
+    return `En ${period}, ${varLabel.toLowerCase()} en ${where} no muestra una tendencia clara: los altibajos son compatibles con la variación natural normal.${extra}`
   }
 
-  // English
   const dirWord = t.direction === 'up' ? 'rising' : t.direction === 'down' ? 'falling' : 'flat'
   if (t.verdict === 'significant') {
-    if (mode === 'student') {
-      return `${varLabel} in ${where} is ${dirWord} steadily (${rate} per decade across ${period}, totaling ${tot}${pctPart}). Both false-alarm-resistant statistical tests agree: this shift is very unlikely to be luck.`
-    }
-    return `${varLabel} in ${where} shows a statistically significant trend (${rate}/decade; cumulative ${tot}${pctPart} over ${period}). Both prewhitened Mann-Kendall (${pTextLang(t.mk_p, 'en')}) and effective-N OLS (${fmtNum(t.n_effective, 'en', 3)} equiv. years) reject H₀.`
+    return `${varLabel} in ${where} is ${dirWord} steadily (${rate} per decade across ${period}, totaling ${tot}${pctPart}). Both false-alarm-resistant statistical tests agree: this shift is very unlikely to be luck.`
   }
   if (t.verdict === 'not_yet') {
     const needPart = t.years_needed
@@ -420,23 +406,15 @@ export function humanVerdictSummary(
         ? `At this pace and noise level, ~${t.years_needed} years of data are needed to confirm it (we currently have ${t.n_years}).`
         : `We have ${t.n_years} years, but the two independent tests disagree, so VERDICT stays cautious.`)
       : ''
-    if (mode === 'student') {
-      return `The chart tilts (${rate} per decade in ${period}), but it is NOT YET confirmed: natural year-to-year climate swings are still large enough to mimic this slope. ${needPart}`
-    }
-    return `Trend not yet confirmed for ${varLabel.toLowerCase()} in ${where} (${rate}/decade; MK ${pTextLang(t.mk_p, 'en')}). ${needPart}`
+    return `The chart tilts (${rate} per decade in ${period}), but it is NOT YET confirmed: natural year-to-year climate swings are still large enough to mimic this slope. ${needPart}`
   }
-  if (mode === 'student') {
-    const extra = t.years_needed
-      ? ` If a shift this size (${rate}/decade) were actually happening, we would need ~${t.years_needed} years of data to spot it clearly.`
-      : ''
-    return `Across ${period}, ${varLabel.toLowerCase()} in ${where} shows no clear trend: year-to-year ups and downs look like normal natural variability.${extra}`
-  }
-  return `No clear trend detected in ${where} over ${period} (Theil–Sen ${rate}/decade, MK ${pTextLang(t.mk_p, 'en')}). Indistinguishable from natural AR(1) variability.`
+  const extra = t.years_needed
+    ? ` If a shift this size (${rate}/decade) were actually happening, we would need ~${t.years_needed} years of data to spot it clearly.`
+    : ''
+  return `Across ${period}, ${varLabel.toLowerCase()} in ${where} shows no clear trend: year-to-year ups and downs look like normal natural variability.${extra}`
 }
 
-export function translateWarning(w: string, lang: Lang, mode: AudienceMode): string {
-  if (lang === 'es' && mode === 'researcher') return w
-
+export function translateWarning(w: string, lang: Lang): string {
   // High autocorrelation
   if (w.startsWith('Autocorrelación alta')) {
     const m = w.match(/\(([^)]+)\)/)
@@ -444,36 +422,26 @@ export function translateWarning(w: string, lang: Lang, mode: AudienceMode): str
     if (lang === 'es') {
       return `El clima aquí tiene "memoria fuerte" entre años seguidos (${rVal}): un año cálido o seco suele seguir a otro igual, lo que hace más fácil confundir rachas con cambios reales.`
     }
-    return mode === 'student'
-      ? `Strong year-to-year climate "memory" (${rVal}): warm or dry years tend to cluster together, making natural streaks look like long-term trends.`
-      : `High lag-1 autocorrelation (${rVal}): even after correction, false-positive risk is elevated.`
+    return `Strong year-to-year climate "memory" (${rVal}): warm or dry years tend to cluster together, making natural streaks look like long-term trends.`
   }
   // Methods disagree
   if (w.startsWith('Las dos pruebas')) {
     if (lang === 'es') return 'Nuestros dos detectores matemáticos no se ponen de acuerdo todavía: por seguridad marcamos el resultado como "En observación".'
-    return mode === 'student'
-      ? 'Our two statistical detectors disagree on this time series, so we conservatively mark it as "Not Yet Confirmed".'
-      : 'Prewhitened Mann-Kendall and effective-N OLS disagree; verdict remains conservative.'
+    return 'Our two statistical detectors disagree on this time series, so we conservatively mark it as "Not Yet Confirmed".'
   }
   // Period sensitivity
   if (w.startsWith('El veredicto cambia')) {
     if (lang === 'es') return 'Cuidado: si movemos el año de inicio o fin por apenas 1 a 3 años, la conclusión cambia. Depende bastante del tramo elegido.'
-    return mode === 'student'
-      ? 'Heads up: shifting the start or end date by just 1–3 years changes the verdict. The result is sensitive to the chosen time window.'
-      : 'Period-sensitive: shifting start/end boundaries by ±3 years changes the verdict.'
+    return 'Heads up: shifting the start or end date by just 1–3 years changes the verdict. The result is sensitive to the chosen time window.'
   }
   // Abrupt step change (Pettitt)
   if (w.startsWith('Parece un salto brusco')) {
     const yearMatch = w.match(/hacia (\d{4})/)
-    const pMatch = w.match(/Pettitt, ([^)]+)\)/)
     const yr = yearMatch ? yearMatch[1] : ''
-    const pStr = pMatch ? pMatch[1].replace(',', lang === 'en' ? '.' : ',') : ''
     if (lang === 'es') {
       return `¡Ojo! Los datos saltaron de golpe alrededor de ${yr} en lugar de cambiar poco a poco. Esto suele pasar cuando cambian los satélites de la NASA, no por el clima real.`
     }
-    return mode === 'student'
-      ? `Watch out! The data jumped abruptly around ${yr} rather than changing gradually. This often signals a satellite sensor upgrade rather than real climate change.`
-      : `Possible abrupt step change around ${yr} (Pettitt ${pStr}) rather than a gradual linear trend; likely a reanalysis assimilation shift. Cross-check with an independent source.`
+    return `Watch out! The data jumped abruptly around ${yr} rather than changing gradually. This often signals a satellite sensor upgrade rather than real climate change.`
   }
   // Forecast warnings
   if (w.startsWith('La previsión mira')) {
@@ -540,9 +508,7 @@ export function formatRelationText(
   place: string,
   country: string,
   lang: Lang,
-  mode: AudienceMode,
 ): string {
-  if (lang === 'es' && mode === 'researcher') return rel.interpretation
   const strengthMap = {
     es: { débil: 'débil', moderada: 'moderada', fuerte: 'fuerte' },
     en: { débil: 'weak', moderada: 'moderate', fuerte: 'strong' },
@@ -575,14 +541,6 @@ export const UI = {
       briefing: { num: '01', label: 'Guía y Misión' },
       planet: { num: '02', label: 'Planeta 3D' },
       studio: { num: '03', label: 'Paneles Estadísticos' },
-    },
-    modeLabel: {
-      student: '🎓 Estudiante',
-      researcher: '🔬 Investigador',
-    },
-    modeTip: {
-      student: 'Modo Estudiante: cifras simples, barras visuales y gráficas limpias',
-      researcher: 'Modo Investigador: valores p, τ de Kendall, n efectivo y tablas de rigor',
     },
     phase1: {
       kicker: 'NASA Space Apps Challenge 2026 · Equipo Laboratorio Boreal',
@@ -725,14 +683,6 @@ export const UI = {
       briefing: { num: '01', label: 'Briefing & Method' },
       planet: { num: '02', label: '3D Planet' },
       studio: { num: '03', label: 'Analytics Studio' },
-    },
-    modeLabel: {
-      student: '🎓 Student',
-      researcher: '🔬 Researcher',
-    },
-    modeTip: {
-      student: 'Student Mode: plain-language verdicts, visual certainty meters, and clean charts',
-      researcher: 'Researcher Mode: exact p-values, Kendall τ, effective N, and Monte Carlo rigor',
     },
     phase1: {
       kicker: 'NASA Space Apps Challenge 2026 · Team Laboratorio Boreal',

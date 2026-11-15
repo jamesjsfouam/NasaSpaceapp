@@ -76,12 +76,31 @@ const STYLE: StyleSpecification = {
 }
 
 type SpotPin = { lat: number; lon: number; label?: string }
+type GeoFeatureCollection = Extract<Parameters<GeoJSONSource['setData']>[0], { type: 'FeatureCollection' }>
+type GeoFeature = GeoFeatureCollection['features'][number]
+
+const TELECONNECTIONS: GeoFeatureCollection = {
+  type: 'FeatureCollection',
+  features: [
+    // Niño 3.4 (-140, 0) -> Corredor Seco (-86.6, 13.5)
+    { type: 'Feature', properties: { name: 'ENSO → Corredor Seco' }, geometry: { type: 'LineString', coordinates: [[-140, 0], [-112, 8], [-86.6, 13.5]] } },
+    // Niño 3.4 -> Amazonía (-60, -3.1)
+    { type: 'Feature', properties: { name: 'ENSO → Amazonía' }, geometry: { type: 'LineString', coordinates: [[-140, 0], [-100, -4], [-60, -3.1]] } },
+    // Niño 3.4 -> Sudeste Asiático (110, 1)
+    { type: 'Feature', properties: { name: 'ENSO → Sudeste Asiático' }, geometry: { type: 'LineString', coordinates: [[-140, 0], [-178, 2], [150, 2], [110, 1]] } },
+    // Atlántico / Sahel -> Caribe / Centroamérica
+    { type: 'Feature', properties: { name: 'Sahel / Atlántico → Caribe' }, geometry: { type: 'LineString', coordinates: [[10, 15], [-35, 16], [-83.8, 12]] } },
+    // Amplificación Ártica (Svalbard 15.6, 78.2) -> Europa / Norteamérica
+    { type: 'Feature', properties: { name: 'Ártico → Latitudes medias' }, geometry: { type: 'LineString', coordinates: [[15.6, 78.2], [-20, 62], [-75, 42]] } },
+  ],
+}
 
 type Props = {
   data: GlobeData
   variable: string
   onlySignificant: boolean
   night: boolean
+  showTeleconnections?: boolean
   lang: Lang
   onPick: (lat: number, lon: number) => void
   focus?: SpotPin | null
@@ -95,6 +114,7 @@ export function Globe3D({
   variable,
   onlySignificant,
   night,
+  showTeleconnections = false,
   lang,
   onPick,
   focus,
@@ -105,8 +125,8 @@ export function Globe3D({
   const wrapRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
 
-  const spotsGeojson = useMemo<GeoJSON.FeatureCollection>(() => {
-    const features: GeoJSON.Feature[] = []
+  const spotsGeojson = useMemo<GeoFeatureCollection>(() => {
+    const features: GeoFeature[] = []
     if (focus) {
       features.push({
         type: 'Feature',
@@ -126,7 +146,7 @@ export function Globe3D({
     return { type: 'FeatureCollection', features }
   }, [focus, second])
 
-  const geojson = useMemo<GeoJSON.FeatureCollection>(() => {
+  const geojson = useMemo<GeoFeatureCollection>(() => {
     const half = data.cell_deg / 2
     const scale = data.variables[variable]?.slope_p98 ?? 1
     const clampLat = (x: number) => Math.max(-85, Math.min(85, x))
@@ -249,6 +269,20 @@ export function Globe3D({
         },
       })
 
+      map.addSource('teleconnections', { type: 'geojson', data: TELECONNECTIONS })
+      map.addLayer({
+        id: 'teleconnections',
+        type: 'line',
+        source: 'teleconnections',
+        layout: { visibility: showTeleconnections ? 'visible' : 'none' },
+        paint: {
+          'line-color': '#a78bfa',
+          'line-width': 2.2,
+          'line-dasharray': [2, 2],
+          'line-opacity': 0.85,
+        },
+      })
+
       map.addSource('selected-spots', { type: 'geojson', data: live.current.spotsGeojson })
       map.addLayer({
         id: 'spot-halo',
@@ -356,6 +390,18 @@ export function Globe3D({
     if (map.isStyleLoaded()) apply()
     else map.once('load', apply)
   }, [night])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const apply = () => {
+      if (map.getLayer('teleconnections')) {
+        map.setLayoutProperty('teleconnections', 'visibility', showTeleconnections ? 'visible' : 'none')
+      }
+    }
+    if (map.isStyleLoaded()) apply()
+    else map.once('load', apply)
+  }, [showTeleconnections])
 
   useEffect(() => {
     const map = mapRef.current

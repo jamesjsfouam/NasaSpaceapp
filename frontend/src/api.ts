@@ -198,6 +198,9 @@ export type Relation = {
   strength: 'débil' | 'moderada' | 'fuerte'
   significant: boolean
   trend_driven: boolean
+  lag_years?: number
+  excluded_years?: number[]
+  spatial_note?: string
   interpretation: string
   warnings: string[]
   points: RelationPoint[]

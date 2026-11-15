@@ -221,6 +221,8 @@ async def relate_endpoint(
     place: str = "",
     start: int = 1990,
     end: int = Query(default_factory=power.last_full_year),
+    lag: int = Query(0, ge=0, le=2, description="Rezago en años (0, 1 o 2) aplicado al indicador"),
+    exclude_2020_2021: bool = Query(False, description="Excluir choque global 2020-2021"),
 ) -> RelateResponse:
     """Relación año a año entre una variable de la Tierra y un indicador socioeconómico del país."""
     _check_period(start, end)
@@ -248,8 +250,11 @@ async def relate_endpoint(
     except trends.InsufficientData:
         ind_trend = None
     try:
-        relation = relate.relate(var.label, earth, ind.label, series,
-                                 place or f"{lat:.2f}, {lon:.2f}", country_label)
+        relation = relate.relate(
+            var.label, earth, ind.label, series,
+            place or f"{lat:.2f}, {lon:.2f}", country_label,
+            lag=lag, exclude_2020_2021=exclude_2020_2021,
+        )
     except relate.InsufficientOverlap as exc:
         raise HTTPException(422, str(exc)) from exc
     return RelateResponse(

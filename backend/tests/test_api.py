@@ -209,3 +209,11 @@ def test_globe_endpoint_serves_grid_or_404(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "GLOBE_FILE", f)
     r = client.get("/api/globe")
     assert r.status_code == 200 and r.json()["cells"] == []
+
+
+@pytest.mark.parametrize("var_key", ["VPD", "DTR", "WBGT"])
+def test_derived_variables_work_on_sample_region(var_key):
+    r = client.get("/api/trend", params={"variable": var_key, "lat": 12.13, "lon": -86.25})
+    assert r.status_code == 200
+    res = r.json()["result"]
+    assert res["n_years"] >= 30 and res["series"]["annual"]

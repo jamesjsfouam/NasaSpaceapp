@@ -35,6 +35,6 @@ Rediseña y pule por completo la interfaz y experiencia visual (UI/UX) del front
    - **HUD Único con Divulgación Progresiva (sin dos modos separados):**
      - **Primer plano claro para todos:** veredicto en lenguaje cotidiano, tasa por década, barras visuales de `% de certeza` y años faltantes, y gráfico limpio por defecto.
      - **Profundidad técnica bajo demanda:** switch local `+ ruido mensual` en el gráfico y tarjeta/acordeón colapsable `"Ver detalle estadístico y metodología"` con `MK p`, `OLS p_eff`, `τ`, `n_eff`, lag-1 `r`, prueba de Pettitt y proyecciones locales (`h=0..3`).
-   - Opcionalmente, en la barra de contexto de la zona o tarjeta secundaria, si el backend local responde en `/api/meteomatics` (sin romper el modo estático si falla), muestra una insignia discreta con temperatura/UV/PM2.5 actual de Meteomatics para ese punto.
+   - Opcionalmente, en la barra de contexto de la zona o tarjeta secundaria, si el backend local responde en `/api/weather` (sin romper el modo estático si falla), muestra una insignia discreta con temperatura/UV actual de Meteomatics para ese punto.
    - Cuida estados de carga, error, tablas con scroll horizontal y diseño responsive completo en `<= 1024px` (tablet) y `<= 680px` (móvil).
 ```

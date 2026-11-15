@@ -6,7 +6,7 @@ import { api, type Catalog, type RelateResponse } from './api'
 import { ExplainPanel } from './Explain'
 import {
   fmtNum, formatRelationText, pTextLang, tIndicator, translateWarning, tUnit, tVariable,
-  type AudienceMode, type Lang,
+  type Lang,
 } from './i18n'
 
 export type RelateQuery = {
@@ -28,21 +28,21 @@ export function RelateView({
   cat,
   query,
   lang,
-  mode,
 }: {
   cat: Catalog
   query: RelateQuery
   lang: Lang
-  mode: AudienceMode
 }) {
   const suggested = cat.indicators.find((i) => i.suggested_variable === query.variable) ?? cat.indicators[0]
   const [indicator, setIndicator] = useState(suggested.key)
   const [country, setCountry] = useState(query.country ?? 'NIC')
+  const [lag, setLag] = useState(0)
+  const [excludeShock, setExcludeShock] = useState(false)
   const [data, setData] = useState<RelateResponse | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function run(ind = indicator, cc = country) {
+  async function run(ind = indicator, cc = country, l = lag, ex = excludeShock) {
     setBusy(true)
     setError(null)
     setData(null)
@@ -51,7 +51,8 @@ export function RelateView({
       setData(
         await api<RelateResponse>(
           `/api/relate?variable=${query.variable}&indicator=${ind}&country=${cc}` +
-          `&lat=${query.lat}&lon=${query.lon}&start=${query.start}&place=${encodeURIComponent(place)}`,
+          `&lat=${query.lat}&lon=${query.lon}&start=${query.start}&place=${encodeURIComponent(place)}` +
+          `&lag=${l}&exclude_2020_2021=${ex}`,
         ),
       )
     } catch (e) {
@@ -103,6 +104,9 @@ export function RelateView({
         chart1Sub: 'Valores centrados alrededor del promedio local para comparar forma.',
         chart2Title: '¿Cuando un año sube el otro también?',
         chart2Sub: 'Cada punto es un año sin tendencia. Una nube inclinada indica relación real.',
+        lagLabel: 'Rezago temporal',
+        shockLabel: 'Excluir choque 2020–2021',
+        spatialBadge: 'Validez espacial: 1 punto (~50 km) vs agregado nacional',
       }
     : {
         intro1: 'Does',
@@ -125,6 +129,9 @@ export function RelateView({
         chart1Sub: 'Standardized around each series mean so shapes align visually.',
         chart2Title: 'Year-to-year scatter (detrended)',
         chart2Sub: 'Each dot is one year minus its trend. A tilted cloud signals genuine coupling.',
+        lagLabel: 'Time lag',
+        shockLabel: 'Exclude 2020–2021 shock',
+        spatialBadge: 'Spatial validity: 1 point (~50 km) vs national aggregate',
       }
 
   const strengthText = (s: string) => {
@@ -156,6 +163,18 @@ export function RelateView({
             ))}
           </select>
         </label>
+        <label>
+          {copy.lagLabel}
+          <select value={lag} onChange={(e) => setLag(Number(e.target.value))}>
+            <option value={0}>Lag 0</option>
+            <option value={1}>Lag 1 ({lang === 'es' ? '1 año' : '1 yr'})</option>
+            <option value={2}>Lag 2 ({lang === 'es' ? '2 años' : '2 yrs'})</option>
+          </select>
+        </label>
+        <label className="check-inline" style={{ alignSelf: 'end', paddingBottom: 6 }}>
+          <input type="checkbox" checked={excludeShock} onChange={(e) => setExcludeShock(e.target.checked)} />
+          <span>{copy.shockLabel}</span>
+        </label>
         <button className="primary" onClick={() => run()} disabled={busy}>
           {busy ? copy.busyBtn : copy.btn}
         </button>
@@ -168,9 +187,12 @@ export function RelateView({
       {data && rel && dataInd && (
         <>
           <div className={`verdict ${rel.significant ? 'yes' : 'no'}`}>
-            <h2>{variable?.label} × {dataInd.label}</h2>
+            <div className="row">
+              <h2 style={{ margin: 0 }}>{variable?.label} × {dataInd.label}</h2>
+              <span className="badge not_yet">{rel.spatial_note || copy.spatialBadge}</span>
+            </div>
             <p className="lead">
-              {formatRelationText(rel, variable?.label ?? '', dataInd.label, query.label.split(',')[0], data.country_label, lang, mode)}
+              {formatRelationText(rel, variable?.label ?? '', dataInd.label, query.label.split(',')[0], data.country_label, lang)}
             </p>
           </div>
 
@@ -225,7 +247,7 @@ export function RelateView({
 
           {rel.warnings.length > 0 && (
             <ul className="warnings">
-              {rel.warnings.map((w) => <li key={w}>{translateWarning(w, lang, mode)}</li>)}
+              {rel.warnings.map((w) => <li key={w}>{translateWarning(w, lang)}</li>)}
             </ul>
           )}
 

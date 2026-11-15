@@ -19,6 +19,7 @@ from scipy import stats
 from app.services.trends import ALPHA, _fmt, _p_text
 
 MIN_OVERLAP = 10
+SHOCK_YEARS = {2020, 2021}
 
 
 class RelationPoint(BaseModel):
@@ -42,6 +43,9 @@ class Relation(BaseModel):
     strength: str  # débil | moderada | fuerte
     significant: bool
     trend_driven: bool  # la correlación aparente se debe sobre todo a las tendencias
+    lag_years: int = 0
+    excluded_years: list[int] = []
+    spatial_note: str = ""
     interpretation: str
     warnings: list[str]
     points: list[RelationPoint]
@@ -68,14 +72,19 @@ def relate(
     indicator: dict[int, float],
     place: str,
     country: str,
+    lag: int = 0,
+    exclude_2020_2021: bool = False,
 ) -> Relation:
-    common = sorted(set(earth) & set(indicator))
+    earth_shifted = {y + lag: v for y, v in earth.items()} if lag else earth
+    overlap = sorted(set(earth_shifted) & set(indicator))
+    excluded_years = [y for y in overlap if y in SHOCK_YEARS] if exclude_2020_2021 else []
+    common = [y for y in overlap if y not in SHOCK_YEARS] if exclude_2020_2021 else overlap
     if len(common) < MIN_OVERLAP:
         raise InsufficientOverlap(
             f"Solo hay {len(common)} años con datos de ambas series; se necesitan {MIN_OVERLAP}."
         )
     years = np.array(common, dtype=float)
-    e = np.array([earth[y] for y in common])
+    e = np.array([earth_shifted[y] for y in common])
     i = np.array([indicator[y] for y in common])
     if np.std(e) == 0 or np.std(i) == 0:
         raise InsufficientOverlap("Una de las series no varía; no se puede calcular la relación.")
@@ -110,12 +119,19 @@ def relate(
         )
     text += " Una correlación muestra asociación; no demuestra que una cause la otra."
 
+    spatial_note = f"1 punto ({place}, celda ~50 × 60 km) vs agregado nacional ({country})"
     warnings = [
         (
             f"Se compara un punto ({place}, celda de ~50 × 60 km) con un indicador de todo el país "
             f"({country}). Si la región no representa al país, la relación se diluye."
         )
     ]
+    if lag:
+        warnings.append(f"Rezago aplicado: clima en año t comparado con indicador social en t+{lag}.")
+    if excluded_years:
+        warnings.append(
+            f"Años de choque global excluidos del cálculo: {', '.join(map(str, excluded_years))}."
+        )
     if n < 20:
         warnings.append("Pocos años en común: una relación real podría no alcanzar significancia.")
     if (rho_p < ALPHA) != significant:
@@ -136,6 +152,9 @@ def relate(
         strength=_strength(det_r),
         significant=significant,
         trend_driven=trend_driven,
+        lag_years=lag,
+        excluded_years=excluded_years,
+        spatial_note=spatial_note,
         interpretation=text,
         warnings=warnings,
         points=[

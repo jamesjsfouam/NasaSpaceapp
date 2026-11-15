@@ -11,8 +11,8 @@ import { ExplainPanel } from './Explain'
 import { GlobeSection, type SecondSpot, type Spot } from './GlobeSection'
 import {
   certaintyInfo, CONCERNS_EN, fmtNum, fmtProb, formatForecastText, humanVerdictSummary,
-  PLACE_TYPES_EN, pTextLang, translateWarning, tDemo, tRegion, tUnit, tVariable, UI,
-  verdictLabel, type AudienceMode, type Lang, type Phase,
+  PLACE_TYPES_EN, translateWarning, tDemo, tRegion, tUnit, tVariable, UI,
+  verdictLabel, type Lang, type Phase,
 } from './i18n'
 import { RelateView } from './RelateView'
 import { SatelliteView } from './SatelliteView'
@@ -32,7 +32,7 @@ const MONTE_CARLO_ROWS = [
 export default function App() {
   const [phase, setPhase] = useState<Phase>('briefing')
   const [lang, setLang] = useState<Lang>('es')
-  const [mode, setMode] = useState<AudienceMode>('student')
+  const [weatherNow, setWeatherNow] = useState<{ key: string; tempC: number; uv?: number } | null>(null)
 
   const [cat, setCat] = useState<Catalog | null>(null)
   const [spot, setSpot] = useState<Spot>({ lat: 12.13, lon: -86.25, label: 'Managua, Nicaragua', iso3: 'NIC', country: 'Nicaragua' })
@@ -65,6 +65,28 @@ export default function App() {
   useEffect(() => {
     api<Catalog>('/api/catalog').then(setCat).catch((e: Error) => setError(e.message))
   }, [])
+
+  // Insignia opcional de Meteomatics cuando el backend local está activo (silenciosa en estático)
+  const queryCoordKey = query ? `${query.spot.lat},${query.spot.lon}` : null
+  useEffect(() => {
+    if (!queryCoordKey || (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io'))) {
+      return
+    }
+    const ctrl = new AbortController()
+    const [latStr, lonStr] = queryCoordKey.split(',')
+    fetch(`/api/weather?lat=${latStr}&lon=${lonStr}&parameters=t_2m:C,uv:idx`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => {
+        const series = payload?.data as { parameter: string; coordinates: { dates: { value: number }[] }[] }[] | undefined
+        if (!Array.isArray(series)) return setWeatherNow(null)
+        const getVal = (p: string) => series.find((s) => s.parameter === p)?.coordinates?.[0]?.dates?.[0]?.value
+        const tempC = getVal('t_2m:C')
+        const uv = getVal('uv:idx')
+        setWeatherNow(tempC !== undefined ? { key: queryCoordKey, tempC, uv } : null)
+      })
+      .catch(() => setWeatherNow(null))
+    return () => ctrl.abort()
+  }, [queryCoordKey])
 
   // Rule-based variable recommender: concern + place type → up to 3 variables
   useEffect(() => {
@@ -296,23 +318,6 @@ export default function App() {
           </nav>
 
           <div className="topbar-controls">
-            <div className="segmented" title={t.modeTip[mode]}>
-              <button
-                type="button"
-                className={mode === 'student' ? 'on' : ''}
-                onClick={() => setMode('student')}
-              >
-                {t.modeLabel.student}
-              </button>
-              <button
-                type="button"
-                className={mode === 'researcher' ? 'on' : ''}
-                onClick={() => setMode('researcher')}
-              >
-                {t.modeLabel.researcher}
-              </button>
-            </div>
-
             <div className="segmented">
               <button type="button" className={lang === 'es' ? 'on' : ''} onClick={() => setLang('es')}>ES</button>
               <button type="button" className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>EN</button>
@@ -476,7 +481,6 @@ export default function App() {
           <GlobeSection
             cat={cat}
             lang={lang}
-            mode={mode}
             spot={spot}
             second={second}
             pickSecond={pickSecond}
@@ -519,6 +523,12 @@ export default function App() {
                   <span className="num muted small">
                     {query.spot.lat.toFixed(2)}°, {query.spot.lon.toFixed(2)}°
                   </span>
+                  {weatherNow && weatherNow.key === queryCoordKey && (
+                    <span className="badge not_yet" title="Meteomatics live">
+                      {fmtNum(weatherNow.tempC, lang, 3)} °C
+                      {weatherNow.uv !== undefined ? ` · UV ${fmtNum(weatherNow.uv, lang, 2)}` : ''}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -583,7 +593,6 @@ export default function App() {
                 onScenario={loadScenario}
                 start={query.start}
                 lang={lang}
-                mode={mode}
               />
             )}
 
@@ -595,7 +604,6 @@ export default function App() {
                 varLabel={activeVar?.label ?? query.variable}
                 cat={cat}
                 lang={lang}
-                mode={mode}
                 onOpen={openVariableInStudio}
               />
             )}
@@ -609,7 +617,6 @@ export default function App() {
                 onSecond={(s) => setSecond(s)}
                 regions={cat.regions}
                 lang={lang}
-                mode={mode}
                 onPickOnGlobe={() => {
                   setPickSecond(true)
                   switchPhase('planet')
@@ -623,7 +630,6 @@ export default function App() {
                 lon={query.spot.lon}
                 label={query.spot.label}
                 lang={lang}
-                mode={mode}
               />
             )}
 
@@ -634,7 +640,6 @@ export default function App() {
                 country={query.spot.iso3}
                 start={query.start}
                 lang={lang}
-                mode={mode}
               />
             )}
 
@@ -644,7 +649,6 @@ export default function App() {
                 cat={cat}
                 query={relateQuery}
                 lang={lang}
-                mode={mode}
               />
             )}
           </div>
@@ -671,7 +675,6 @@ function TrendView({
   onScenario,
   start,
   lang,
-  mode,
 }: {
   data: TrendResponse
   where: string
@@ -681,7 +684,6 @@ function TrendView({
   onScenario: (y: number) => void
   start: number
   lang: Lang
-  mode: AudienceMode
 }) {
   const t = data.result
   const unit = tUnit(t.unit, lang)
@@ -690,8 +692,7 @@ function TrendView({
   const rig = UI[lang].phase3.rigor
 
   const [toYear, setToYear] = useState(2050)
-  const [rigorOverride, setRigorOverride] = useState<boolean | null>(null)
-  const rigorOpen = rigorOverride ?? (mode === 'researcher')
+  const [rigorOpen, setRigorOpen] = useState(false)
 
   const cert = certaintyInfo(t.mk_p, t.verdict, lang)
   const sign = t.slope_per_decade > 0 ? '+' : ''
@@ -721,9 +722,9 @@ function TrendView({
             </span>
             <h2 style={{ fontSize: '1.35rem', marginTop: 2 }}>{varLabel}</h2>
           </div>
-          <span className={`badge lg ${t.verdict}`}>{verdictLabel(t.verdict, lang, mode)}</span>
+          <span className={`badge lg ${t.verdict}`}>{verdictLabel(t.verdict, lang)}</span>
         </div>
-        <p className="lead">{humanVerdictSummary(t, where, varLabel, lang, mode)}</p>
+        <p className="lead">{humanVerdictSummary(t, where, varLabel, lang)}</p>
       </div>
 
       {/* 4 Visual KPI Cards */}
@@ -757,7 +758,7 @@ function TrendView({
             <div className={`meter-fill ${cert.tone}`} style={{ width: `${cert.pct}%` }} />
           </div>
           <em className="muted small">
-            {mode === 'researcher' ? `${pTextLang(t.mk_p, lang)} · ${cert.detail}` : cert.detail}
+            {cert.detail}
           </em>
         </div>
 
@@ -786,7 +787,7 @@ function TrendView({
       {t.warnings.length > 0 && (
         <ul className="warnings">
           {t.warnings.map((w) => (
-            <li key={w}>{translateWarning(w, lang, mode)}</li>
+            <li key={w}>{translateWarning(w, lang)}</li>
           ))}
         </ul>
       )}
@@ -797,7 +798,7 @@ function TrendView({
       )}
 
       {/* Clean Interactive Chart */}
-      <TrendChart trend={t} forecast={scenario} lang={lang} mode={mode} />
+      <TrendChart trend={t} forecast={scenario} lang={lang} />
 
       {/* Future Scenario Card */}
       <div className="scenario-card">
@@ -823,7 +824,7 @@ function TrendView({
           <div className="scenario-result">
             <p style={{ margin: '8px 0 4px' }}>{formatForecastText(scenario, varLabel, t.unit, lang)}</p>
             {scenario.warnings.map((w) => (
-              <p key={w} className="muted small" style={{ margin: '2px 0' }}>⚠ {translateWarning(w, lang, mode)}</p>
+              <p key={w} className="muted small" style={{ margin: '2px 0' }}>⚠ {translateWarning(w, lang)}</p>
             ))}
           </div>
         )}
@@ -843,15 +844,15 @@ function TrendView({
         lang={lang}
       />
 
-      {/* Researcher Rigor Card (expanded automatically in Researcher Mode) */}
+      {/* Collapsible Statistical Details & Methodology */}
       <div className="rigor-card">
         <button
           type="button"
           className="rigor-toggle"
           aria-expanded={rigorOpen}
-          onClick={() => setRigorOverride(!rigorOpen)}
+          onClick={() => setRigorOpen(!rigorOpen)}
         >
-          <span>{mode === 'researcher' ? rig.summaryResearcher : rig.summaryStudent}</span>
+          <span>{rig.summaryStudent}</span>
           <span>{rigorOpen ? '▲' : '▼'}</span>
         </button>
 
@@ -901,7 +902,6 @@ function ScanAndRegionsView({
   varLabel,
   cat,
   lang,
-  mode,
   onOpen,
 }: {
   scan: ScanResponse
@@ -910,7 +910,6 @@ function ScanAndRegionsView({
   varLabel: string
   cat: Catalog
   lang: Lang
-  mode: AudienceMode
   onOpen: (key: string) => void
 }) {
   const sCopy = UI[lang].phase3.scan
@@ -944,12 +943,15 @@ function ScanAndRegionsView({
                     <td className="num">{DIRECTION_ARROW[r.direction]}</td>
                     <td className="num">{r.slope_per_decade > 0 ? '+' : ''}{fmtNum(r.slope_per_decade, lang)} {unit}</td>
                     <td className="num">
-                      {mode === 'student'
-                        ? cert.headline
-                        : `${fmtProb(r.mk_p, lang)}${r.p_adjusted !== null ? ` · adj ${fmtProb(r.p_adjusted, lang)}` : ''}`}
+                      {cert.headline}
+                      {r.p_adjusted !== null && (
+                        <span className="muted small" style={{ display: 'block' }}>
+                          p_adj {fmtProb(r.p_adjusted, lang)}
+                        </span>
+                      )}
                     </td>
                     <td>
-                      <span className={`badge ${r.verdict}`}>{verdictLabel(r.verdict, lang, mode)}</span>
+                      <span className={`badge ${r.verdict}`}>{verdictLabel(r.verdict, lang)}</span>
                       {r.step_year && (
                         <span className="badge not_yet" style={{ marginLeft: 6 }}>
                           {lang === 'es' ? `salto ${r.step_year}` : `jump ${r.step_year}`}
@@ -1003,9 +1005,9 @@ function ScanAndRegionsView({
                     </td>
                     <td className="num">{DIRECTION_ARROW[r.direction]}</td>
                     <td className="num">{r.slope_per_decade > 0 ? '+' : ''}{fmtNum(r.slope_per_decade, lang)} {unit}</td>
-                    <td className="num">{mode === 'student' ? cert.headline : fmtProb(r.mk_p, lang)}</td>
+                    <td className="num">{cert.headline}</td>
                     <td>
-                      <span className={`badge ${r.verdict}`}>{verdictLabel(r.verdict, lang, mode)}</span>
+                      <span className={`badge ${r.verdict}`}>{verdictLabel(r.verdict, lang)}</span>
                     </td>
                   </tr>
                 )

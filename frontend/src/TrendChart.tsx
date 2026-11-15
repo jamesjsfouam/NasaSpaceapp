@@ -3,25 +3,21 @@ import {
   Area, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import type { Forecast, Trend } from './api'
-import { fmtNum, tUnit, UI, type AudienceMode, type Lang } from './i18n'
+import { fmtNum, tUnit, UI, type Lang } from './i18n'
 
 type Row = { x: number; monthly?: number; annual?: number; trend?: number; scenario?: number; band?: [number, number] }
 
-/** Time-series chart with Simple (Annual + Trend) vs Full (+ Monthly anomalies) toggle. */
+/** Time-series chart with clean annual default + local '+ monthly noise' toggle. */
 export function TrendChart({
   trend,
   forecast,
   lang,
-  mode,
 }: {
   trend: Trend
   forecast?: Forecast | null
   lang: Lang
-  mode: AudienceMode
 }) {
-  const [userPref, setUserPref] = useState<'simple' | 'full' | null>(null)
-  const viewMode = userPref ?? (mode === 'student' ? 'simple' : 'full')
-  const showMonthly = viewMode === 'full'
+  const [showMonthly, setShowMonthly] = useState(false)
 
   const s = trend.series
   if (!s) return null
@@ -58,22 +54,14 @@ export function TrendChart({
             {showMonthly ? c.guideFull : c.guideSimple}
           </p>
         </div>
-        <div className="segmented">
-          <button
-            type="button"
-            className={viewMode === 'simple' ? 'on' : ''}
-            onClick={() => setUserPref('simple')}
-          >
-            {c.simpleBtn}
-          </button>
-          <button
-            type="button"
-            className={viewMode === 'full' ? 'on' : ''}
-            onClick={() => setUserPref('full')}
-          >
-            {c.fullBtn}
-          </button>
-        </div>
+        <button
+          type="button"
+          className={`chip ${showMonthly ? 'on' : ''}`}
+          aria-pressed={showMonthly}
+          onClick={() => setShowMonthly((v) => !v)}
+        >
+          {lang === 'es' ? '+ ruido mensual' : '+ monthly noise'}
+        </button>
       </div>
 
       <ResponsiveContainer width="100%" height={330}>

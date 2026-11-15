@@ -64,3 +64,19 @@ def test_only_common_years_are_used_and_minimum_enforced():
 def test_constant_series_is_rejected():
     with pytest.raises(relate.InsufficientOverlap):
         relate.relate("A", series(np.ones(len(YEARS))), "B", series(np.arange(len(YEARS))), "X", "Y")
+
+
+def test_lag_and_exclude_2020_2021():
+    rng = np.random.default_rng(12)
+    earth_vals = rng.normal(0, 1, len(YEARS))
+    earth = series(earth_vals)
+    # El indicador responde al año anterior (lag=1) y tiene un choque extremo en 2020-2021
+    ind = {YEARS[k + 1]: earth_vals[k] * 2.0 for k in range(len(YEARS) - 1)}
+    ind[2020] = 50.0
+    ind[2021] = -50.0
+
+    r = relate.relate("A", earth, "B", ind, "Managua", "Nicaragua", lag=1, exclude_2020_2021=True)
+    assert r.lag_years == 1
+    assert r.excluded_years == [2020, 2021]
+    assert "Managua" in r.spatial_note and "Nicaragua" in r.spatial_note
+    assert r.significant and r.detrended_r > 0.9

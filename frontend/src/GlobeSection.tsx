@@ -4,7 +4,7 @@ import type { CameraCmd, GlobeData } from './Globe3D'
 import { legendGradient } from './globeColors'
 import {
   CONCERNS_EN, fmtNum, PLACE_TYPES_EN, shortVarName, tRegion, tUnit, tVariable, UI,
-  type AudienceMode, type Lang,
+  type Lang,
 } from './i18n'
 
 const Globe3D = lazy(() => import('./Globe3D').then((m) => ({ default: m.Globe3D })))
@@ -15,7 +15,6 @@ export type SecondSpot = { lat: number; lon: number; label: string }
 type Props = {
   cat: Catalog | null
   lang: Lang
-  mode: AudienceMode
   spot: Spot
   second: SecondSpot | null
   pickSecond: boolean
@@ -46,7 +45,7 @@ type Props = {
 /** Phase 2: Unified 3D Planet Explorer (macro 5° global cells + local satellite zoom) + Control Dock. */
 export function GlobeSection(props: Props) {
   const {
-    cat, lang, mode, spot, second, pickSecond, onPickSecondChange,
+    cat, lang, spot, second, pickSecond, onPickSecondChange,
     search, onSearchChange, found, onSearch, onPickPlace,
     question, onQuestionChange, askInfo, onAsk,
     concern, onConcernChange, placeType, onPlaceTypeChange,
@@ -60,6 +59,7 @@ export function GlobeSection(props: Props) {
   const [layerVar, setLayerVar] = useState('T2M')
   const [onlySig, setOnlySig] = useState(false)
   const [night, setNight] = useState(false)
+  const [teleconnections, setTeleconnections] = useState(false)
   const [spin, setSpin] = useState(true)
   const [camSeq, setCamSeq] = useState(0)
   const [camCmd, setCamCmd] = useState<CameraCmd | null>(null)
@@ -131,11 +131,9 @@ export function GlobeSection(props: Props) {
                 ? `de celdas con cambio confirmado en ${shortVarName(layerVar, 'es', meta.label).toLowerCase()} (${data.period[0]}–${data.period[1]})`
                 : `of global cells show confirmed change in ${shortVarName(layerVar, 'en', meta.label).toLowerCase()} (${data.period[0]}–${data.period[1]})`}
             </span>
-            {mode === 'researcher' && (
-              <span className="muted num">
-                n = {meta.cells.toLocaleString(lang === 'es' ? 'es' : 'en-US')} · BH FDR q = {fmtNum(data.fdr_q, lang, 2)}
-              </span>
-            )}
+            <span className="muted num">
+              n = {meta.cells.toLocaleString(lang === 'es' ? 'es' : 'en-US')} · BH FDR q = {fmtNum(data.fdr_q, lang, 2)}
+            </span>
           </div>
         )}
 
@@ -158,6 +156,7 @@ export function GlobeSection(props: Props) {
                 variable={layerVar}
                 onlySignificant={onlySig}
                 night={night}
+                showTeleconnections={teleconnections}
                 lang={lang}
                 onPick={handlePickFromGlobe}
                 focus={spot}
@@ -176,6 +175,13 @@ export function GlobeSection(props: Props) {
               </button>
               <button type="button" className={`hud-btn ${onlySig ? 'on' : ''}`} onClick={() => setOnlySig((v) => !v)}>
                 ✓ {lang === 'es' ? 'Solo FDR' : 'FDR Only'}
+              </button>
+              <button
+                type="button"
+                className={`hud-btn ${teleconnections ? 'on' : ''}`}
+                onClick={() => setTeleconnections((v) => !v)}
+              >
+                🌐 {lang === 'es' ? 'Teleconexiones' : 'Teleconnections'}
               </button>
             </div>
           </div>

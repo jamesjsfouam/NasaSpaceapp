@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 
 class Variable(BaseModel):
-    key: str  # código del parámetro en NASA POWER
+    key: str  # código del parámetro en NASA POWER o variable derivada
     label: str
     unit: str
     theme: str
@@ -16,6 +16,7 @@ class Variable(BaseModel):
     ratio_scale: bool  # True si el cero es significativo (permite hablar de % de cambio)
     source: str = "MERRA-2 (NASA POWER)"
     reliability: str = "Reanálisis: modelo + observaciones. Contrasta con otra fuente antes de concluir."
+    derived: bool = False
 
 
 class Region(BaseModel):
@@ -114,6 +115,21 @@ VARIABLES: list[Variable] = [
              definition="Peso del aire sobre la superficie. Cambia con las masas de aire y las tormentas.",
              source="MERRA-2 (NASA POWER)",
              reliability="Muy estable y bien observada."),
+    Variable(key="VPD", label="Déficit de presión de vapor (VPD)", unit="kPa", theme="humidity",
+             ratio_scale=True, derived=True,
+             definition="Qué tan 'sediento' está el aire respecto a su saturación. Valores altos secan rápido las hojas y suelos.",
+             source="Derivada de T2M y RH2M (MERRA-2 / NASA POWER)",
+             reliability="Combina temperatura y humedad del reanálisis; muy sensible para estrés agrícola e incendios."),
+    Variable(key="DTR", label="Rango térmico diurno (DTR)", unit="°C", theme="temperature",
+             ratio_scale=True, derived=True,
+             definition="Diferencia entre la temperatura máxima del día y la mínima de la noche (T2M_MAX − T2M_MIN).",
+             source="Derivada de T2M_MAX y T2M_MIN (MERRA-2 / NASA POWER)",
+             reliability="Cuando las noches se calientan más rápido que los días, el DTR disminuye."),
+    Variable(key="WBGT", label="Estrés térmico húmedo (WBGT aprox.)", unit="°C", theme="temperature",
+             ratio_scale=False, derived=True,
+             definition="Índice compuesto de calor y humedad en sombra que refleja la carga térmica sobre el cuerpo humano.",
+             source="Derivada de T2M y RH2M (fórmula BoM / MERRA-2)",
+             reliability="Aproximación en sombra sin radiación solar directa ni viento local; útil para tendencias de riesgo térmico."),
 ]
 VARIABLE_BY_KEY = {v.key: v for v in VARIABLES}
 
@@ -239,13 +255,13 @@ _RULES: dict[str, list[str]] = {
     "wind": ["WS2M", "PS", "PRECTOTCORR"],
 }
 _PLACE_TWEAKS: dict[tuple[str, str], list[str]] = {
-    ("heat", "city"): ["T2M_MIN", "T2M_MAX", "T2M"],  # las noches cálidas delatan la isla de calor
+    ("heat", "city"): ["T2M_MIN", "DTR", "WBGT"],  # noches cálidas, DTR y estrés térmico
     ("heat", "cold"): ["T2M", "TS", "T2M_MIN"],
-    ("heat", "coast"): ["T2M", "T2MDEW", "RH2M"],  # calor húmedo
-    ("water", "dry"): ["PRECTOTCORR", "GWETTOP", "RH2M"],
+    ("heat", "coast"): ["WBGT", "T2M", "RH2M"],  # calor húmedo
+    ("water", "dry"): ["PRECTOTCORR", "GWETTOP", "VPD"],
     ("water", "forest"): ["PRECTOTCORR", "EVLAND", "RH2M"],
-    ("drought", "farmland"): ["GWETROOT", "PRECTOTCORR", "EVLAND"],
-    ("drought", "dry"): ["GWETTOP", "PRECTOTCORR", "T2M_MAX"],
+    ("drought", "farmland"): ["GWETROOT", "VPD", "PRECTOTCORR"],
+    ("drought", "dry"): ["GWETTOP", "VPD", "T2M_MAX"],
     ("wind", "coast"): ["WS2M", "PS", "PRECTOTCORR"],
 }
 
