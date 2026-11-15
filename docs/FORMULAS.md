@@ -18,7 +18,7 @@
 3. **[PARTE 2 · Motor Python que generó los datos precalculados](#parte-2--motor-que-generó-los-datos-precalculados-de-la-web-backend-python-de-homeusernasaspaceapp)**
    - A datos y derivadas (DTR, VPD, WBGT) · B anomalías y medias anuales · C magnitud · D significancia y veredicto (lag‑1, MK, n efectivo, OLS, veredicto, años necesarios, periodo, Pettitt, avisos, Bonferroni, certeza) · E escenario y ONU · F relación · G geometría, satélite, demografía · H globo (BH‑FDR, p98) · I reglas del recomendador/IA · J scripts y Monte Carlo
 4. **[PARTE 3 · Comparación TypeScript vs. Python](#parte-3--comparación-explícita-motor-typescript-navegador-de-josé-vs-motor-python)**
-5. **[PARTE 4 · Modelo de crecimiento urbano «Ciudad 3D»](#parte-4--modelo-de-crecimiento-urbano-ciudad-3d-escenario-por-celdas)** — Q1 malla · Q2 fracción construida · Q3 pendiente · Q4 variables · Q5 regresión logística · Q6 validación (AUC, FoM) · Q7 población urbana · Q8 exponente β · Q9 impulsores sociales · Q10 impulsores climáticos y Pettitt · Q11 área objetivo · Q12 reparto · Q13 altura y color 3D
+5. **[PARTE 4 · Modelo de crecimiento urbano «Ciudad 3D»](#parte-4--modelo-de-crecimiento-urbano-ciudad-3d-escenario-por-celdas)** — Q1 malla · Q2 fracción construida · Q3 pendiente · Q4 variables · Q5 regresión logística · Q6 validación (AUC, FoM) · Q7 población urbana · Q8 exponente β · Q9 impulsores sociales · Q10 impulsores climáticos y Pettitt · Q11 área objetivo · Q12 reparto · Q13 altura esquemática y color 3D (versión inicial) · Q14 crecimiento vertical con alturas reales GHSL
 6. [Constantes y umbrales](#constantes-y-umbrales-tabla-maestra) · [N. Dónde NO hay fórmula propia](#n-dónde-no-hay-fórmula-propia-se-delega-en-una-fuente-externa) · [O. Hallazgos](#o-hallazgos-rarezas-y-discrepancias) · [P. Auto‑verificación](#p-autoverificación) · [Apéndice](#apéndice--cálculos-del-frontend-de-nasaspaceapp-que-no-están-en-la-web-de-josé)
 
 ---
@@ -1017,7 +1017,7 @@ Tras cada paso se recalculan $x_1,\dots,x_6$ (efecto de contagio: lo recién con
 
 - **Densidad base** (celdas construidas en 2023): $\text{densidad}_c=\operatorname{round}(100\,f_c(2023))\in[0{,}100]$.
 - **Densidad de las celdas nuevas:** $\bar\rho=\operatorname{clip}\big(\operatorname{media}\{f_c(t_1): B_c(t_0)=0,\,B_c(t_1)=1\},\ 0{,}3,\ 1\big)$ ⇒ 0,75 en Managua.
-- **Altura del bloque (`heightOf`, `jitter`, `CityGrowth3D.tsx`):**
+- **Altura del bloque, versión inicial esquemática (`heightOf`, `jitter`, `CityGrowth3D.tsx` de `NasaSpaceapp`; la web oficial usa las alturas reales de Q14):**
 
 $$h_c=6+54\left(\frac{\text{densidad}_c}{100}\right)^{1{,}3}+6\,j_c\ \ [\text{m}],\qquad j_c=\operatorname{frac}\!\big(\sin(127{,}1\,r+311{,}7\,c)\cdot 43\,758{,}5453\big)\in[0{,}1)$$
 
@@ -1026,6 +1026,44 @@ $$h_c=6+54\left(\frac{\text{densidad}_c}{100}\right)^{1{,}3}+6\,j_c\ \ [\text{m}
 - **Cifras mostradas:** superficie construida del año $t$ (de `stats.built_km2`), población urbana ($U$), celdas visibles = celdas con $B$ en 2023 o añadidas con año $\le t$.
 
 **Límites declarados en la propia vista:** escenario de tendencia, no predicción; no conoce planes urbanísticos; con 10 m se ven manzanas, no edificios; ingreso y clima actúan con supuestos explícitos.
+
+## Q14. Crecimiento vertical: alturas reales y su evolución (`read_ghsl_height`, `vertical_fields`, `height_at`)
+
+> **Qué sustituye.** Q13 describe la altura *esquemática* de la primera versión (repositorio `NasaSpaceapp`). La web oficial (`Datexv2`) usa las **alturas reales de GHSL** y el crecimiento vertical de esta sección. Las alturas vienen de una estimación modelada a 100 m: son **promedios por celda, no edificios individuales**; las torres aisladas aparecen suavizadas.
+
+**Altura de partida (GHSL GHS‑BUILT‑H, ANBH 2018, R2023A).** Altura media neta de edificación de cada píxel de 100 m (Mollweide). Se reproyecta a la malla lon/lat de ~100 m calculando el promedio solo sobre lo edificado:
+
+$$h_c=\frac{\overline{h\cdot\mathbf 1[h>0]}}{\overline{\mathbf 1[h>0]}}\quad\text{(promedios sobre los píxeles de la celda)},\qquad h_c=0\ \text{si}\ \overline{\mathbf 1[h>0]}\le 0{,}02$$
+
+**Relleno.** Si una celda construida en 2023 no tiene altura ($h_c=0$), se le asigna la media de las celdas vecinas con dato en una ventana de $11\times11$ (mínimo 3 m): $h^{0}_c=\max\!\big(3,\ \overline{h}_{11\times11}\big)$. La altura de una celda **nueva** es la media local de lo edificado a ≈1,5 km (ventana $15\times15$), con mínimo 3 m: $h^{\text{nueva}}_c=\max\!\big(3,\ \overline{h^{0}}_{15\times15}\big)$.
+
+**Centralidad (núcleo denso).** Con $\rho^{15}_c$ = media de la máscara construida en una ventana de $15\times15$ y $\ell,u$ = percentiles 10 y 90 de $\rho^{15}$ entre las celdas construidas:
+
+$$\text{núcleo}_c=\operatorname{clip}\!\left(\frac{\rho^{15}_c-\ell}{u-\ell},\,0,\,1\right)$$
+
+**Multiplicador vertical por ingreso (supuesto explícito).** Con $G(t)$ el ingreso por habitante (Q9) y $\theta=0{,}5$:
+
+$$m(t)=\left(\frac{G(t)}{G(2023)}\right)^{\theta}$$
+
+**Altura de cada celda en el año $t$** (escenario «clima + sociedad»):
+
+$$h_c(t)=h^{0}_c\Big[1+\big(m(t)-1\big)\,\text{núcleo}_c\Big]\ \ (\text{celdas de 2023}),\qquad h_c(t)=h^{\text{nueva}}_c\Big[1+\big(m(t)-1\big)\,\text{núcleo}_c\Big]\ \ (\text{celdas añadidas en un año}\le t)$$
+
+En el escenario **«solo población»** no hay crecimiento vertical: $m\equiv1$ y las celdas nuevas usan $h^{\text{nueva}}_c$.
+
+**Magnitudes que muestra la web.** Con $w_c=f_c(2023)$ (fracción construida) para celdas de 2023 y $w_c=0{,}75$ para las nuevas, y $0{,}01$ km² por celda:
+
+$$V(t)=\sum_c 0{,}01\cdot w_c\cdot h_c(t)\ \ [\text{millones de m}^3],\qquad \bar h_{\text{exist.}}(t)=\operatorname{media}_{c\in\text{celdas 2023}}\,h_c(t),\qquad h_{\max}(t)=\max_c h_c(t)$$
+
+$h_{\max}$ es la **«celda con mayor altura media»**, no la altura de un edificio concreto. El volumen debido a crecimiento vertical es $\sum_{c\in\text{2023}}0{,}01\,w_c\,[h_c(t)-h^{0}_c]$.
+
+**Dibujo (web de José, `CityGrowth3D.tsx`).** Altura de extrusión = $h_c(t)\times E$, con $E\in[1{,}12]$ la «exageración vertical» elegida (por defecto 6×; solo visual: las cifras mostradas son reales). La extensión vertical se dibuja en blanco entre $h^{0}_c E$ y $h_c(t)E$; el crecimiento horizontal, en cian.
+
+**Ejemplo (Managua, clima + sociedad):** $m(2050)=\left(\tfrac{3847}{2282}\right)^{0{,}5}=1{,}2984$. Altura media de lo existente: 5,72 m → 6,98 m (2023 → 2050); celda con mayor altura media: 23,9 m → 29,4 m; volumen construido: 1244,9 → 1956,4 millones de m³, de los cuales 281,0 por crecimiento vertical. Con «solo población»: 1576,0 millones de m³ y altura media 5,03 m (baja porque las celdas nuevas son más bajas que el promedio).
+
+**Sensibilidad al supuesto $\theta$** (volumen en 2050, millones de m³): $\theta=0$ → 1664,2; $\theta=0{,}5$ → 1956,4; $\theta=1$ → 2335,9.
+
+**Límites.** $\theta$ es un supuesto, no un coeficiente ajustado; el crecimiento vertical se concentra por construcción en el núcleo denso; las alturas de partida son un modelo a 100 m (2018), no un levantamiento de edificios.
 
 ---
 
