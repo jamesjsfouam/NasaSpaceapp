@@ -186,6 +186,8 @@ GAMMA = 0.2   # elasticidad del suelo construido por persona respecto al ingreso
 HEAT_FULL_C = 2.0        # calentamiento que equivale a estrés térmico = 1
 DRY_FULL_SOIL = 0.10     # descenso de humedad de raíces (0–1) que equivale a sequía = 1
 DRY_FULL_PRECIP = 0.25   # descenso relativo de lluvia que equivale a sequía = 1
+THETA = 0.5   # elasticidad de la altura de los edificios al ingreso por habitante (supuesto, crecimiento vertical)
+GHSL_YEAR = 2018
 EVIDENCE_WEIGHT = {"significant": 1.0, "not_yet": 0.5, "no_trend": 0.0}
 
 
@@ -284,6 +286,77 @@ def target_area(a0: float, U: dict, soc: dict | None, clim: dict | None, year: i
     push = 1 + kappa * s * soc["agr_share"][year]
     income = (soc["gdp_pc"][year] / soc["gdp_pc"][base_year]) ** gamma
     return a0 * (ratio * push) ** beta * income
+
+
+
+def read_ghsl_height(n: int, transform):
+    """Altura media neta de edificación (m) a 100 m, GHSL GHS-BUILT-H ANBH 2018 (R2023A, Mollweide).
+    Devuelve (altura media de lo edificado por celda, 0 donde no hay edificación)."""
+    import urllib.request
+    from rasterio.warp import transform as warp_transform
+
+    cx = float(transform.c + transform.a * n / 2)
+    cy = float(transform.f + transform.e * n / 2)
+    xs, ys = warp_transform("EPSG:4326", "ESRI:54009", [cx], [cy])
+    col = int((xs[0] - (-18041000.0)) // 1_000_000) + 1
+    row = int((9018000.0 - ys[0]) // 1_000_000) + 1
+    name = f"GHS_BUILT_H_ANBH_E2018_GLOBE_R2023A_54009_100_V1_0_R{row}_C{col}"
+    url = ("https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_H_GLOBE_R2023A/"
+           f"GHS_BUILT_H_ANBH_E2018_GLOBE_R2023A_54009_100/V1-0/tiles/{name}.zip")
+    cache = Path("/tmp/ghsl")
+    cache.mkdir(exist_ok=True)
+    zpath = cache / f"{name}.zip"
+    if not zpath.exists():
+        print(f"  descargando {name}.zip", flush=True)
+        urllib.request.urlretrieve(url, zpath)
+    h = np.zeros((n, n), dtype="float32")
+    m = np.zeros((n, n), dtype="float32")
+    with rasterio.open(f"/vsizip/{zpath}/{name}.tif") as src:
+        arr = src.read(1).astype("float32")
+        tf, crs = src.transform, src.crs
+        b = transform_bounds("EPSG:4326", crs, *[transform.c, transform.f + transform.e * n,
+                                                   transform.c + transform.a * n, transform.f])
+        win = from_bounds(*b, transform=tf).round_offsets().round_lengths()
+        w = arr[int(win.row_off): int(win.row_off + win.height), int(win.col_off): int(win.col_off + win.width)]
+        wtf = src.window_transform(win)
+    w = np.where(w > 0, w, 0.0).astype("float32")
+    reproject(w, h, src_transform=wtf, src_crs=crs, dst_transform=transform, dst_crs="EPSG:4326",
+              resampling=Resampling.average)
+    reproject((w > 0).astype("float32"), m, src_transform=wtf, src_crs=crs, dst_transform=transform,
+              dst_crs="EPSG:4326", resampling=Resampling.average)
+    out = np.where(m > 0.02, h / np.maximum(m, 1e-6), 0.0)
+    return out.astype("float32")
+
+
+def vertical_fields(h_raw: np.ndarray, base_built: np.ndarray):
+    """Alturas base (m), alturas de las celdas nuevas (m) y peso de centralidad (0–1)."""
+    h0 = np.where(base_built, h_raw, 0.0)
+    # celdas construidas sin dato de altura: media local de las vecinas con dato (mínimo 3 m)
+    has = (h0 > 0).astype("float32")
+    num = ndimage.uniform_filter(h0, 11)
+    den = ndimage.uniform_filter(has, 11)
+    local = np.where(den > 0.02, num / np.maximum(den, 1e-6), 3.0)
+    h0 = np.where(base_built & (h0 <= 0), np.maximum(local, 3.0), h0)
+    # altura de una celda nueva: media local de lo edificado a ~1,5 km (mínimo 3 m)
+    num15 = ndimage.uniform_filter(h0, 15)
+    den15 = ndimage.uniform_filter((h0 > 0).astype("float32"), 15)
+    h_new = np.where(den15 > 0.02, num15 / np.maximum(den15, 1e-6), 3.0)
+    h_new = np.maximum(h_new, 3.0)
+    dens15 = ndimage.uniform_filter(base_built.astype("float32"), 15)
+    vals = dens15[base_built]
+    lo, hi = np.percentile(vals, 10), np.percentile(vals, 90)
+    core = np.clip((dens15 - lo) / max(hi - lo, 1e-6), 0, 1)
+    return h0.astype("float32"), h_new.astype("float32"), core.astype("float32")
+
+
+def height_at(year: int, base_year: int, h0, h_new, core, added, k_of_year, soc, theta=THETA):
+    """Altura (m) de cada celda en un año: lo existente crece en vertical según ingreso y centralidad."""
+    mult = (soc["gdp_pc"][year] / soc["gdp_pc"][base_year]) ** theta
+    grow = 1 + (mult - 1) * core
+    h = h0 * grow
+    new = (added > 0) & (added <= k_of_year)
+    h = np.where(new, h_new * grow, h)
+    return h.astype("float32"), float(mult)
 
 
 def b64(a: np.ndarray) -> str:
@@ -426,6 +499,40 @@ def build(city_id: str) -> None:
                         for gm in (0.0, 0.2, 0.4)})
     print("  sensibilidad 2050 (km²):", sensitivity, flush=True)
 
+    # ---- crecimiento vertical (alturas reales GHSL 2018 + crecimiento por ingreso y centralidad)
+    h_raw = read_ghsl_height(n, transform)
+    h0, h_new, core = vertical_fields(h_raw, B[BASE_YEAR])
+    cellkm2 = (CELL_M / 1000) ** 2
+    dens_base = np.clip(built_f[BASE_YEAR], 0, 1) * B[BASE_YEAR]
+    new_dens_val = 0.75
+    vertical = {"theta": THETA, "height_source": "GHSL GHS-BUILT-H ANBH 2018 (R2023A), 100 m",
+                "height_year": GHSL_YEAR, "multiplier": {}, "mean_height_m": {}, "max_height_m": {},
+                "volume_million_m3": {}, "mean_height_existing_m": {}, "volume_from_vertical_million_m3": {}, "mean_height_m_population_only": {}, "volume_million_m3_population_only": {}}
+    for k, yr in enumerate([BASE_YEAR] + PROJECTION_YEARS):
+        hh, mult = height_at(yr, BASE_YEAR, h0, h_new, core, added, k, soc)
+        built_now = B[BASE_YEAR] | ((added > 0) & (added <= k))
+        w_now = np.where(B[BASE_YEAR], dens_base, new_dens_val) * built_now
+        vol = float((hh * w_now).sum() * cellkm2 * 1e6 / 1e6)   # km² · m → millones de m³
+        vertical["multiplier"][str(yr)] = round(mult, 4)
+        vertical["mean_height_m"][str(yr)] = round(float(hh[built_now].mean()), 2)
+        vertical["max_height_m"][str(yr)] = round(float(hh[built_now].max()), 1)
+        vertical["volume_million_m3"][str(yr)] = round(vol, 1)
+        vertical["mean_height_existing_m"][str(yr)] = round(float(hh[B[BASE_YEAR]].mean()), 2)
+        vertical["volume_from_vertical_million_m3"][str(yr)] = round(float(((hh - h0) * dens_base * B[BASE_YEAR]).sum() * cellkm2), 1)
+        # escenario solo población: crece en horizontal, pero las alturas no cambian
+        hb = np.where((added_base > 0) & (added_base <= k), h_new, h0)
+        built_b = B[BASE_YEAR] | ((added_base > 0) & (added_base <= k))
+        wb = np.where(B[BASE_YEAR], dens_base, new_dens_val) * built_b
+        vertical["mean_height_m_population_only"][str(yr)] = round(float(hb[built_b].mean()), 2)
+        vertical["volume_million_m3_population_only"][str(yr)] = round(float((hb * wb).sum() * cellkm2), 1)
+    vertical["sensitivity_volume_2050_million_m3"] = {}
+    for th in (0.0, 0.5, 1.0):
+        hh, _ = height_at(horizon, BASE_YEAR, h0, h_new, core, added, len(PROJECTION_YEARS), soc, theta=th)
+        bn = B[BASE_YEAR] | (added > 0)
+        wn = np.where(B[BASE_YEAR], dens_base, new_dens_val) * bn
+        vertical["sensitivity_volume_2050_million_m3"][f"theta={th}"] = round(float((hh * wn).sum() * cellkm2), 1)
+    print("  vertical: altura media", vertical["mean_height_m"], "m; volumen", vertical["volume_million_m3"], flush=True)
+
     dens = np.clip(np.round(built_f[BASE_YEAR] * 100), 0, 100)
     dens[~B[BASE_YEAR]] = 0
     conv = np.concatenate([(built_f[t1] * (B[t1] & ~B[t0])).ravel()[(B[t1] & ~B[t0]).ravel()]
@@ -438,6 +545,8 @@ def build(city_id: str) -> None:
         "grid": {"cols": n, "rows": n, "cell_m": CELL_M, "west": w, "south": s, "east": e, "north": nn},
         "base_year": BASE_YEAR, "years": [BASE_YEAR] + PROJECTION_YEARS,
         "density": b64(dens), "added": b64(added), "added_base": b64(added_base), "water": b64((W >= 0.5)),
+        "height": b64(np.clip(np.round(h0), 0, 255)), "height_new": b64(np.clip(np.round(h_new), 0, 255)),
+        "core": b64(np.round(core * 100)), "vertical": vertical,
         "new_cell_density": round(new_density, 2),
         "stats": {
             "built_km2": {str(k): round(v, 1) for k, v in {**{y: area[y] for y in years}, **out_area}.items()},
@@ -455,7 +564,7 @@ def build(city_id: str) -> None:
             "climate": clim,
             "social": {"gdp_growth_per_year": round(soc["gdp_growth"], 4), "agr_employment_change_per_year": round(soc["agr_decline"], 4),
                        "gdp_last_observed": soc["gdp_last_obs"], "agr_last_observed": soc["agr_last_obs"]},
-            "assumptions": {"kappa": KAPPA, "gamma": GAMMA, "heat_full_c": HEAT_FULL_C, "dry_full_soil": DRY_FULL_SOIL,
+            "assumptions": {"kappa": KAPPA, "gamma": GAMMA, "theta": THETA, "heat_full_c": HEAT_FULL_C, "dry_full_soil": DRY_FULL_SOIL,
                             "dry_full_precip": DRY_FULL_PRECIP, "evidence_weight": EVIDENCE_WEIGHT},
             "sensitivity_built_km2_2050": sensitivity,
         },
@@ -466,13 +575,13 @@ def build(city_id: str) -> None:
         },
         "coefficients": coefs,
         "sources": ["Impact Observatory / Esri 10 m Land Use/Land Cover (annual), Microsoft Planetary Computer",
-                    "Copernicus DEM GLO-30 (slope)", "UN World Population Prospects via Our World in Data",
+                    "Copernicus DEM GLO-30 (slope)", "JRC GHSL GHS-BUILT-H R2023A (average net building height, 2018)", "UN World Population Prospects via Our World in Data",
                     "NASA POWER (MERRA-2) trends via DATEX engine", "World Bank Open Data (GDP per capita, agricultural employment)"],
         "method": "Cellular automaton with logistic transition probabilities; built area follows (UN urban population x climate push)^beta x (GDP per capita)^gamma.",
         "caveats": ["Scenario, not a forecast: it extends 2017–2023 land-cover trends and ignores urban planning.",
                     "Climate and income effects use explicit scenario assumptions (kappa, gamma), not fitted coefficients.",
                     "A climate trend only counts if it is not suspected to be a data discontinuity (Pettitt) and is weighted by its evidence level.",
-                    "10 m land cover resolves city blocks, not individual buildings; heights are schematic."],
+                    "Base heights come from GHSL (100 m, 2018, modelled from satellite data); vertical growth follows an explicit income-elasticity assumption (theta) concentrated in the dense core."],
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"{city_id}.json"
