@@ -1,6 +1,6 @@
 # VERDICT · Diagrama de Flujo y Especificación de Pantallas para Diseño UI/UX
 
-> **Propósito:** Documento de referencia para el equipo de diseño (Figma / UI). Detalla la arquitectura de navegación en 3 fases, los flujos interactivos, la dualidad `Estudiante` vs. `Investigador` y el inventario exacto de componentes, estados y tokens visuales de cada pantalla de la aplicación web.  
+> **Propósito:** Documento de referencia para el equipo de diseño (Figma / UI). Detalla la arquitectura de navegación en 3 fases, los flujos interactivos, el **HUD Único Unificado con divulgación progresiva** y el inventario exacto de componentes, estados y tokens visuales de cada pantalla de la aplicación web.  
 > **Documento complementario:** [DESIGN.md](DESIGN.md)
 
 ---
@@ -30,11 +30,11 @@ La web NO concatena controles y tablas en una sola página larga: divide la expe
 
 ```mermaid
 flowchart TD
-    TOP["Barra Superior Fija (Topbar sticky)<br/>Logo VERDICT · 3 Fases · Modo Estudiante/Investigador · Idioma ES/EN"]
+    TOP["Barra Superior Fija (Topbar sticky)\nLogo VERDICT · 3 Fases · Idioma ES/EN"]
 
-    TOP --> P1["PANTALLA 01 · Guía y Misión (briefing)<br/>Narrativa editorial + metodología simple + 4 demos"]
-    TOP --> P2["PANTALLA 02 · Planeta 3D Unificado (planet)<br/>Mismo globo pasa de 2,592 celdas globales a terreno local"]
-    TOP --> P3["PANTALLA 03 · Estudio y Veredicto (studio)<br/>Cabecera fija de zona + 6 pestañas analíticas"]
+    TOP --> P1["PANTALLA 01 · Guía y Misión (briefing)\nNarrativa editorial + metodología simple + 4 demos"]
+    TOP --> P2["PANTALLA 02 · Planeta 3D Unificado (planet)\nMismo globo pasa de 2,592 celdas globales a terreno local"]
+    TOP --> P3["PANTALLA 03 · Estudio y Veredicto (studio)\nCabecera fija de zona + 6 pestañas analíticas"]
 
     P1 -->|"CTA Principal: Explorar el Planeta 3D"| P2
     P1 -->|"Demo Card: Ver en Planeta 3D"| P2
@@ -46,7 +46,7 @@ flowchart TD
     P3 -->|"Botón Context Bar: Cambiar zona en el planeta"| P2
     P3 -->|"Botón Compare Tab: Elegir 2.º punto en el planeta"| P2
 
-    MODO{"Toggle Global:<br/>Estudiante vs Investigador"} -.->|"Adapta textos, KPIs,<br/>gráficos y tablas en tiempo real"| P3
+    PROG["HUD Único con Divulgación Progresiva\nVeredicto claro arriba + acordeón técnico bajo demanda"] -.->|"Ordena jerarquía visual de KPIs,\ngráficos y tablas"| P3
 ```
 
 ---
@@ -59,7 +59,7 @@ Ancho máximo centrado de contenido: `1360px` (`sticky`, `top: 0`, `z-index: 40`
 |---|---|---|
 | **Izquierda** | Botón de marca (`brand-btn`) | Logotipo `VERDICT` (cyan con glow) + subtítulo `Earth System Trend Detective`. Clic vuelve a **Pantalla 01**. |
 | **Centro** | Selector de Fases (`.phase-nav` pill) | 3 botones pill: `01 · Guía y Misión`, `02 · Planeta 3D` (muestra punto verde `.phase-dot` si ya hay zona elegida), `03 · Paneles y Veredicto` (añade etiqueta corta con el nombre de la zona activa). En móvil (`<=680px`) ocupa el 100% del ancho debajo del logo. |
-| **Derecha** | Controles Globales (`.topbar-controls`) | **1)** Segmented control `Estudiante` / `Investigador` (cambia el lenguaje estadístico, gráfico por defecto y acordeón de rigor). **2)** Segmented control `ES` / `EN` (bilingüe instantáneo). |
+| **Derecha** | Controles Globales (`.topbar-controls`) | Segmented control `ES` / `EN` (bilingüe instantáneo). **Sin selector de modo `Estudiante` / `Investigador`:** todo usuario ve el mismo HUD único y limpio, con detalle estadístico desplegable bajo demanda. |
 
 ---
 
@@ -98,18 +98,18 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph PLANETA["Columna Izquierda · Escenario 3D Unificado (1.45fr)"]
-        G_TOP["Chips de 5 Variables Globales<br/>T2M · PRECTOTCORR · GWETROOT · T2M_MAX · WS2M"]
-        G_CANVAS["Lienzo WebGL MapLibre 3D<br/>Zoom 1.9: Blue/Black Marble + 2,592 celdas 5°x5°<br/>Zoom >=3.5: Fade progresivo de celdas + Esri Satélite<br/>Clic captura Spot A (Cyan) o Spot B (Coral)"]
-        G_HUD["HUD Flotante (4 botones glass)<br/>Global · Acercar zona · Noche VIIRS · Solo FDR"]
-        G_FOOT["Barra de Leyenda Escala + Barra Zona Activa<br/>(Nombre, Lat/Lon, Botón Zoom Aquí, Botón Ir al Estudio)"]
+        G_TOP["Chips de 5 Variables Globales\nT2M · PRECTOTCORR · GWETROOT · T2M_MAX · WS2M"]
+        G_CANVAS["Lienzo WebGL MapLibre 3D\nZoom 1.9: Blue/Black Marble + 2,592 celdas 5°x5°\nZoom >=3.5: Fade progresivo de celdas + Esri Satélite\nClic captura Spot A (Cyan) o Spot B (Coral)"]
+        G_HUD["HUD Flotante (botones glass)\nGlobal · Acercar zona · Noche VIIRS · Solo FDR · Teleconexiones"]
+        G_FOOT["Barra de Leyenda Escala + Barra Zona Activa\n(Nombre, Lat/Lon, Botón Zoom Aquí, Botón Ir al Estudio)"]
         G_TOP --> G_CANVAS --> G_FOOT
         G_HUD -.-> G_CANVAS
     end
 
     subgraph DOCK["Columna Derecha · Estación de Misión (350–430px)"]
-        S1["Paso 1 · ¿Dónde?<br/>Buscador Open-Meteo + 7 Chips Biomas<br/>+ Checkbox Elegir 2.º Punto"]
-        S2["Paso 2 · ¿Qué investigar?<br/>Pregunta IA libre + 5 Preocupaciones<br/>+ 6 Tipos Lugar + 3 Recomendadas<br/>+ Selectores 14 Vars & Año Inicio"]
-        S3["Paso 3 · Lanzar<br/>CTA Ancho Completo:<br/>Analizar Zona y Ver Veredicto →"]
+        S1["Paso 1 · ¿Dónde?\nBuscador Open-Meteo + 7 Chips Biomas\n+ Checkbox Elegir 2.º Punto"]
+        S2["Paso 2 · ¿Qué investigar?\nPregunta IA libre + 5 Preocupaciones\n+ 6 Tipos Lugar + 3 Recomendadas\n+ Selectores 14 Vars (incl. VPD/DTR/WBGT) & Año Inicio"]
+        S3["Paso 3 · Lanzar\nCTA Ancho Completo:\nAnalizar Zona y Ver Veredicto →"]
         S1 --> S2 --> S3
     end
 ```
@@ -121,7 +121,7 @@ flowchart LR
    - **Banda de Telemetría (`.globe-telemetry-strip`):** Rango temporal analizado, conteo de celdas con significancia tras filtro FDR (`q = 0.10`) y badge dinámico del nivel de zoom actual (`Escala Global` vs `Regional` vs `Local`).
    - **Viewport WebGL 3D (`.globe-viewport-box` / `Globe3D`):**
      - Altura fluida: `clamp(390px, 56vh, 580px)`.
-     - HUD superior derecho (`.globe-hud`): 4 botones translúcidos con blur (`Vista global z=1.9`, `Acercar a la zona z=6.8`, `Modo noche Black Marble`, `Solo celdas significativas FDR`).
+     - HUD superior derecho (`.globe-hud`): botones translúcidos con blur (`Vista global z=1.9`, `Acercar a la zona z=6.8`, `Modo noche Black Marble`, `Solo celdas significativas FDR`, y capa opcional de `Teleconexiones / ENSO` con arcos de influencia climática a distancia).
      - Regla visual de transición macro → micro: entre `zoom 3.5` y `zoom 5.8`, la ortofoto de alta resolución **Esri World Imagery** aparece progresivamente y las celdas `5°×5°` reducen su `fill-opacity` (`1.0 → 0.08`) dejando solo el contorno fino para no tapar calles, cultivos ni cuencas.
      - Regla de clic: si `zoom < 3.6`, el clic se ajusta al centro de la celda de `5°×5°`; si `zoom >= 3.6`, captura la coordenada exacta (`4 decimales`) bajo el puntero.
      - Marcadores: Punto A (`#3fd0e6`) y, si está activo `pickSecond`, Punto B (`#f59e42`). Tooltip `.globe-tip` al hover.
@@ -136,36 +136,36 @@ flowchart LR
 
 ## 6. Pantalla 03 · Estudio Analítico y Veredicto (`studio`)
 
-**Objetivo de diseño:** Mostrar el veredicto de inmediato en lenguaje claro y adaptarlo dinámicamente entre `Estudiante` (lenguaje visual, medidores en %, gráfico limpio) e `Investigador` (p-values exactos, `τ`, `n_eff`, anomalías mensuales, tabla metodológica expandida).
+**Objetivo de diseño:** Un **HUD único y unificado** (sin dos versiones ni selector `Estudiante` / `Investigador`) que muestra el veredicto inmediato en lenguaje claro y visual arriba, mientras ofrece la profundidad estadística completa bajo demanda mediante **divulgación progresiva** (switch local `+ ruido mensual` y acordeón `"Ver detalle estadístico y metodología"`).
 
 ```mermaid
 flowchart TD
-    CTX["Cabecera Fija del Estudio (studio-context-bar)<br/>Zona A (+ badge Zona B) · Selector rápido Variable y Año · Botón Volver al Planeta"]
+    CTX["Cabecera Fija del Estudio (studio-context-bar)\nZona A (+ badge Zona B) · Selector rápido Variable y Año · Botón Volver al Planeta"]
     TABS["Barra de 6 Pestañas (.tabs)"]
 
     CTX --> TABS
-    TABS --> T1["Tab 1 · Veredicto y Futuro<br/>Semáforo + 4 KPIs + Gráfico Simple/Completo<br/>+ Escenarios 2030..2100 + Explicador + Rigor"]
-    TABS --> T2["Tab 2 · Radar 14 Variables<br/>Tabla Bonferroni local + Tabla 7 Biomas"]
-    TABS --> T3["Tab 3 · Comparar 2 Zonas<br/>Buscador Punto B + Cards A vs B + Z-Score"]
-    TABS --> T4["Tab 4 · Satélite 1984–2025<br/>Visor 640x640 + Slider años + Cobertura suelo"]
-    TABS --> T5["Tab 5 · Población ONU<br/>249 países · ONU vs Extrapolación lineal"]
-    TABS --> T6["Tab 6 · Clima y Sociedad<br/>10 Indicadores BM · Aparente vs Real sin tendencia"]
+    TABS --> T1["Tab 1 · Veredicto y Futuro\nSemáforo + 4 KPIs + Gráfico (+ ruido mensual)\n+ Escenarios 2030..2100 + Explicador + Acordeón Rigor"]
+    TABS --> T2["Tab 2 · Radar 14 Variables\nTabla Bonferroni local + Tabla 7 Biomas"]
+    TABS --> T3["Tab 3 · Comparar 2 Zonas\nBuscador Punto B + Cards A vs B + Z-Score"]
+    TABS --> T4["Tab 4 · Satélite 1984–2025\nVisor 640x640 + Slider años + Cobertura suelo"]
+    TABS --> T5["Tab 5 · Población ONU\n249 países · ONU vs Extrapolación lineal"]
+    TABS --> T6["Tab 6 · Clima y Sociedad\n10 Indicadores BM · Lag 0/1/2 + Filtro 2020–21 + Validez"]
 ```
 
 ### 6.1 Cabecera y Barra de Pestañas (Persistentes dentro de Pantalla 03)
-- **`.studio-context-bar`:** Muestra tag de zona activa, nombre del lugar y país, coordenadas `.num`, chip naranja si existe Punto B, selectores rápidos (`Variable`, `Desde año`) sin regresar al globo, y botón secundario `🌍 Cambiar zona en el planeta`.
+- **`.studio-context-bar`:** Muestra tag de zona activa, nombre del lugar y país, coordenadas `.num`, chip naranja si existe Punto B, selectores rápidos (`Variable` incluyendo compuestas `VPD`, `DTR`, `WBGT`, `Desde año`) sin regresar al globo, y botón secundario `🌍 Cambiar zona en el planeta`.
 - **`.tabs`:** 6 botones horizontales flexibles con estado activo `aria-selected="true"`.
 
 ### 6.2 Detalle por Sub-pantalla (Tabs 1 a 6)
 
-| Tab | Bloques que debe diseñar | Diferencia clave `Estudiante` vs. `Investigador` |
+| Tab | Bloques que debe diseñar | Divulgación progresiva y criterios clave de UI |
 |---|---|---|
-| **1. `trend` · Veredicto y Futuro** | **1)** Banner Semáforo (`.verdict` + `.badge.lg`).<br/>**2)** Grid de 4 KPIs (`.kpi-grid`): Dirección (`↑/↓/→`), Ritmo/década + cambio total + rango 95%, Barra de **Certeza Estadística** (`.meter-track`), Barra de **Suficiencia de Datos** (`años obs / años necesarios`).<br/>**3)** Alertas de calidad (`.warnings`).<br/>**4)** Tarjeta Gráfico (`TrendChart`) con toggle **Simple** / **Completo**.<br/>**5)** Tarjeta Escenario Futuro (`.scenario-card`, borde violeta): 5 pills `2030, 2040, 2050, 2075, 2100` con advertencia visible *"Escenario si continúa el ritmo actual"* .<br/>**6)** Botón/Caja **Explicador** (`.explain-btn` / `.explain-box`).<br/>**7)** Tarjeta **Rigor Científico** (`.rigor-card` colapsable): tabla comparativa Mann-Kendall Preblanqueado vs OLS `n_eff`. | En **Estudiante**: KPI muestra `% de certeza` y años faltantes; gráfico abre en **Vista Simple** (sin ruido mensual); alertas van en lenguaje llano; card Rigor inicia **colapsada**.<br/>En **Investigador**: KPI muestra `MK p`, `OLS p_eff`, `τ`, `n_eff`, lag-1 `r`; gráfico abre en **Vista Completa** (con puntos de anomalías mensuales); alertas muestran prueba de Pettitt; card Rigor inicia **abierta**. |
-| **2. `scan` · Radar 14 Variables** | **1)** Tabla local escaneando las **14 variables** en el punto activo (ritmo, dirección, veredicto ajustado con corrección **Bonferroni**). Clic en fila carga esa variable en Tab 1.<br/>**2)** Tabla comparativa entre los **7 biomas de referencia** para la variable activa. | En **Estudiante**: prioriza columna de badge/veredicto visual.<br/>En **Investigador**: expone `p` ajustado y tamaño efectivo. |
+| **1. `trend` · Veredicto y Futuro** | **1)** Banner Semáforo (`.verdict` + `.badge.lg`).<br/>**2)** Grid de 4 KPIs (`.kpi-grid`): Dirección (`↑/↓/→`), Ritmo/década + cambio total + rango 95%, Barra de **Certeza Estadística** (`.meter-track`), Barra de **Suficiencia de Datos** (`años obs / años necesarios`).<br/>**3)** Alertas de calidad (`.warnings`).<br/>**4)** Tarjeta Gráfico (`TrendChart`) limpio por defecto con switch local `+ ruido mensual`.<br/>**5)** Tarjeta Escenario Futuro (`.scenario-card`, borde violeta): 5 pills `2030, 2040, 2050, 2075, 2100` con advertencia visible *"Escenario si continúa el ritmo actual"*.<br/>**6)** Botón/Caja **Explicador** (`.explain-btn` / `.explain-box`).<br/>**7)** Acordeón **Detalle Estadístico y Metodología** (`.rigor-card` colapsado por defecto): tabla comparativa Mann-Kendall Preblanqueado (`MK p`, `τ`) vs OLS (`p_eff`, `n_eff`, lag-1 `r`), prueba de Pettitt y proyecciones locales (`h=0..3`). | **Primer plano:** `% de certeza`, años faltantes, lenguaje cotidiano y gráfico limpio.<br/>**Bajo demanda:** al activar `+ ruido mensual` aparecen anomalías mensuales; al abrir el acordeón de rigor se muestran los estadísticos exactos. |
+| **2. `scan` · Radar 14 Variables** | **1)** Tabla local escaneando las **14 variables** (incluyendo `VPD`, `DTR`, `WBGT`) en el punto activo (ritmo, dirección, veredicto ajustado con corrección **Bonferroni**). Clic en fila carga esa variable en Tab 1.<br/>**2)** Tabla comparativa entre los **7 biomas de referencia** para la variable activa. | Prioriza columna de badge/veredicto visual y ritmo/década, manteniendo `p` ajustado y `n_eff` en columnas secundarias discretas (`tabular-nums`). |
 | **3. `compare` · Comparar 2 Zonas** | **1)** Barra superior con estado del Punto A + botón `Elegir en Planeta 3D` + buscador Open-Meteo para Punto B + 7 chips de biomas rápidos.<br/>**2)** Dos tarjetas espejo lado a lado: `.side-a` (borde superior cyan) vs `.side-b` (borde superior coral `#f59e42`) con tasa, certeza y años necesarios.<br/>**3)** Gráfico único comparativo en **puntajes z estandarizados** para comparar variables/regiones distintas sin distorsión de escala. | Reutiliza si el usuario ya marcó el Punto B desde la Pantalla 02 (`pickSecond`). |
 | **4. `satellite` · Satélite 1984–2025** | **1)** Grid 2 columnas (`.sat`): Visor cuadrado **640×640 px** (`16×16 km`, aspect-ratio `1:1`) a la izquierda; slider temporal + chips de años + badge con sensor (`Landsat 5/7/8/9` o `Sentinel-2`), fecha exacta y `% de nubes` a la derecha.<br/>**2)** Barras horizontales de cobertura de suelo (**Top 5 clases** ESA / Impact Observatory).<br/>**3)** Gráfico multiclase `2017–2023`.<br/>**4)** Escenario de expansión urbana con pills `2030, 2035, 2040, 2050` + `SeriesChart` + módulo `Explain`. | Manejo explícito de estado vacío/error si la nubosidad supera el umbral en alguna fecha o si se navega sin proxy raster directo. |
 | **5. `population` · Población ONU** | **1)** Barra de controles: selector `249 países`, `7 indicadores demográficos ONU`, horizonte `2030–2100`.<br/>**2)** 4 tarjetas KPI: último valor observado, ritmo reciente, proyección oficial **ONU WPP** (`#34d399` esmeralda) y extrapolación lineal ingenua (`--purple` violeta) evidenciando dónde divergen.<br/>**3)** Gráfico `SeriesChart` combinado + módulo `Explain`. | Enfocado en mostrar visualmente la diferencia entre extrapolación lineal ciega y proyección demográfica oficial. |
-| **6. `relate` · Clima y Sociedad** | **1)** Barra `.relate-controls`: selector de 10 indicadores del Banco Mundial (desnutrición, mortalidad calor, rendimiento agrícola, electricidad renovable, estrés hídrico, etc.), selector país y botón `Comparar`.<br/>**2)** Banner veredicto narrativo.<br/>**3)** 4 tarjetas KPI: Correlación real año a año (`detrended r` con barra medidora), Correlación aparente (`raw r` con aviso de **trampa de tendencia compartida**), años traslapados, tendencia del indicador.<br/>**4)** Alertas + 2 gráficos en paralelo (`.charts`): serie doble normalizada `z-score` + diagrama de dispersión `ScatterChart` sin tendencia.<br/>**5)** Módulo `Explain`. | Resalta en ámbar si `raw r` es alto pero `detrended r` cae cerca de `0` (correlación espuria). |
+| **6. `relate` · Clima y Sociedad** | **1)** Barra `.relate-controls`: selector de 10 indicadores del Banco Mundial (desnutrición, mortalidad calor, rendimiento agrícola, electricidad renovable, estrés hídrico, etc.), selector país, selector de rezago **`Lag 0 / 1 / 2 años`**, switch **`Excluir choque 2020–2021`** y botón `Comparar`.<br/>**2)** Banner veredicto narrativo + **badge de validez espacial** (*"1 punto vs agregado nacional"*).<br/>**3)** 4 tarjetas KPI: Correlación real año a año (`detrended r` con barra medidora), Correlación aparente (`raw r` con aviso de **trampa de tendencia compartida**), años traslapados, tendencia del indicador.<br/>**4)** Alertas + 2 gráficos en paralelo (`.charts`): serie doble normalizada `z-score` + diagrama de dispersión `ScatterChart` sin tendencia.<br/>**5)** Módulo `Explain`. | Resalta en ámbar si `raw r` es alto pero `detrended r` cae cerca de `0` (correlación espuria) o si la señal cambia al aislar `2020–2021`. |
 
 ---
 
