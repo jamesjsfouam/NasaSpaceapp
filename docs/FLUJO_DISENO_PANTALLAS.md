@@ -1,4 +1,4 @@
-# VERDICT · Diagrama de Flujo y Especificación de Pantallas para Diseño UI/UX
+# DATEX · Diagrama de Flujo y Especificación de Pantallas para Diseño UI/UX
 
 > **Propósito:** Documento de referencia para el equipo de diseño (Figma / UI). Detalla la arquitectura de navegación en 3 fases, los flujos interactivos, el **HUD Único Unificado con divulgación progresiva** y el inventario exacto de componentes, estados y tokens visuales de cada pantalla de la aplicación web.  
 > **Documento complementario:** [DESIGN.md](DESIGN.md)
@@ -30,7 +30,7 @@ La web NO concatena controles y tablas en una sola página larga: divide la expe
 
 ```mermaid
 flowchart TD
-    TOP["Barra Superior Fija (Topbar sticky)\nLogo VERDICT · 3 Fases · Idioma ES/EN"]
+    TOP["Barra Superior Fija (Topbar sticky)\nLogo DATEX · 3 Fases · Idioma ES/EN"]
 
     TOP --> P1["PANTALLA 01 · Guía y Misión (briefing)\nNarrativa editorial + metodología simple + 4 demos"]
     TOP --> P2["PANTALLA 02 · Planeta 3D Unificado (planet)\nMismo globo pasa de 2,592 celdas globales a terreno local"]
@@ -57,7 +57,7 @@ Ancho máximo centrado de contenido: `1360px` (`sticky`, `top: 0`, `z-index: 40`
 
 | Zona | Elemento | Comportamiento y estados |
 |---|---|---|
-| **Izquierda** | Botón de marca (`brand-btn`) | Logotipo `VERDICT` (cyan con glow) + subtítulo `Earth System Trend Detective`. Clic vuelve a **Pantalla 01**. |
+| **Izquierda** | Botón de marca (`brand-btn`) | Logotipo `DATEX` (cyan con glow) + subtítulo `Earth System Trend Detective`. Clic vuelve a **Pantalla 01**. |
 | **Centro** | Selector de Fases (`.phase-nav` pill) | 3 botones pill: `01 · Guía y Misión`, `02 · Planeta 3D` (muestra punto verde `.phase-dot` si ya hay zona elegida), `03 · Paneles y Veredicto` (añade etiqueta corta con el nombre de la zona activa). En móvil (`<=680px`) ocupa el 100% del ancho debajo del logo. |
 | **Derecha** | Controles Globales (`.topbar-controls`) | Segmented control `ES` / `EN` (bilingüe instantáneo). **Sin selector de modo `Estudiante` / `Investigador`:** todo usuario ve el mismo HUD único y limpio, con detalle estadístico desplegable bajo demanda. |
 
@@ -84,7 +84,7 @@ flowchart LR
 2. **Las 4 Preguntas del Detective (`.question-grid`, 4 `.q-card`)**
    - Tarjeta 1: *¿Qué cambia?* · Tarjeta 2: *¿Dónde?* · Tarjeta 3: *¿Cuánto y desde cuándo?* · Tarjeta 4: *¿Realidad o azar?*
 3. **Bloque Comparativo Metodológico (`.briefing-two-col`, 2 columnas `1.15fr / 0.85fr`)**
-   - **Izquierda · Por qué mienten los gráficos normales:** Tabla Monte Carlo (`.bench-table`) contrastando porcentaje de falsas alarmas de Regresión Estándar (`19.3% – 49.0%` en `--red`) frente a VERDICT (`3.6% – 8.2%` en `--emerald`) según nivel de autocorrelación `AR(1)`.
+   - **Izquierda · Por qué mienten los gráficos normales:** Tabla Monte Carlo (`.bench-table`) contrastando porcentaje de falsas alarmas de Regresión Estándar (`19.3% – 49.0%` en `--red`) frente a DATEX (`3.6% – 8.2%` en `--emerald`) según nivel de autocorrelación `AR(1)`.
    - **Derecha · Semáforo del Veredicto (`.semaforo-list`):** 3 tarjetas con barra lateral izquierda de color: Confirmado (`--accent`), En observación / Todavía no (`--amber` — explica estimación de años faltantes) y Estable / Sin tendencia clara (`--no`).
 4. **Investigaciones Guiadas en 1 Clic (`#briefing-demos`, `.demo-grid`, 4 `.demo-card`)**
    - Cada tarjeta incluye: Tag de variable (`.demo-var-tag`), título del caso, breve resumen, botón primario (`Abrir análisis →` → **Pantalla 03**) y botón secundario (`Ver en Planeta 3D` → **Pantalla 02** enfocada en esa coordenada).

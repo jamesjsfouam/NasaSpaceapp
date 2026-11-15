@@ -1,7 +1,7 @@
-# Memoria del proyecto · Detective de tendencias del sistema Tierra (*Verdict*)
+# Memoria del proyecto · Detective de tendencias del sistema Tierra (*DATEX*)
 
 > Contexto para un Proyecto de Claude. Resume qué es el proyecto, cómo está hecho, qué se
-> decidió y por qué, y qué falta. Última actualización: 2026-11-14 (motor Verdict, cualquier
+> decidió y por qué, y qué falta. Última actualización: 2026-11-14 (motor DATEX, cualquier
 > lugar del mundo, satélite, población, previsión e IA).
 
 ## 1. Identidad
@@ -12,7 +12,7 @@
 - **Repositorio:** https://github.com/jamesjsfouam/NasaSpaceapp (público, rama `main`). El
   repositorio anterior, `jamesjsfouam/Nasa-Spaceappschallenge`, está abandonado.
 - **Idea base:** el análisis del equipo en
-  `docs/Earth_System_Trend_Detective_analisis_y_solucion.pdf`. Propone "Verdict": de una
+  `docs/Earth_System_Trend_Detective_analisis_y_solucion.pdf`. Propone "DATEX": de una
   pregunta a un veredicto honesto.
 - **Idioma:**
   - Interfaz, documentación y commits en español; números con coma decimal.
@@ -114,7 +114,7 @@ backend/   Python 3.11+, FastAPI, httpx, numpy, pandas, scipy, anthropic, revers
                             temas, preocupaciones, tipos de lugar, recommend(), regiones,
                             demos, indicadores del Banco Mundial
   app/services/power.py     NASA POWER mensual por punto, caché 6 h, muestras de 7 regiones
-  app/services/trends.py    motor Verdict (sección 5)
+  app/services/trends.py    motor DATEX (sección 5)
   app/services/forecast.py  escenario lineal con intervalo de predicción
   app/services/places.py    búsqueda (Open-Meteo) y país de una coordenada (sin conexión)
   app/services/demography.py  ONU vía Our World in Data (CSV completo por indicador, caché 24 h)

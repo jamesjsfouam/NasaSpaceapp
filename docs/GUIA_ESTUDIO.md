@@ -193,7 +193,7 @@ demasiado pequeños, es decir, falsos positivos.
   - **Pre-whitening** (Yue et al. 2002).
   - **Errores estándar HAC** en la regresión (`statsmodels`, `cov_type="HAC"`).
 
-**Lo que hace la app ahora (motor *Verdict*):** usa Mann-Kendall con preblanqueo y la
+**Lo que hace la app ahora (motor *DATEX*):** usa Mann-Kendall con preblanqueo y la
 regresión con $n_{ef}$, y solo declara "significativa" si **las dos coinciden**. Además
 corrige el **sesgo de muestra pequeña** de $r_1$: con 30 años, la autocorrelación estimada
 sale demasiado baja, y sin corregir ninguno de los dos métodos se mantenía en el 5 %. Nuestra

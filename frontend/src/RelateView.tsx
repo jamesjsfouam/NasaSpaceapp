@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { COLOR } from './theme'
 import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -110,7 +111,7 @@ export function RelateView({
       }
     : {
         intro1: 'Does',
-        intro2: 'co-vary with agriculture or society? VERDICT separates deceptive long-term trend coincidences from real year-to-year coupling.',
+        intro2: 'co-vary with agriculture or society? DATEX separates deceptive long-term trend coincidences from real year-to-year coupling.',
         indLabel: 'Indicator (World Bank)',
         countryLabel: 'Country',
         btn: 'Compare',
@@ -262,8 +263,8 @@ export function RelateView({
                   <YAxis width={36} />
                   <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
                   <Legend />
-                  <Line name={variable?.label ?? ''} dataKey="earth" stroke="#3fd0e6" strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <Line name={dataInd.label} dataKey="indicator" stroke="#f59e42" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line name={variable?.label ?? ''} dataKey="earth" stroke={COLOR.observed} strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line name={dataInd.label} dataKey="indicator" stroke={COLOR.trend} strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -294,7 +295,7 @@ export function RelateView({
                     tickFormatter={(v: number) => fmtNum(v, lang, 2)}
                   />
                   <Tooltip formatter={(v) => (typeof v === 'number' ? fmtNum(v, lang) : v)} labelFormatter={() => ''} />
-                  <Scatter data={rel.points} fill="#3fd0e6" isAnimationActive={false} />
+                  <Scatter data={rel.points} fill={COLOR.observed} isAnimationActive={false} />
                 </ScatterChart>
               </ResponsiveContainer>
             </div>

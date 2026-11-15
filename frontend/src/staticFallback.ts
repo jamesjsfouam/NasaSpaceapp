@@ -880,7 +880,7 @@ function buildTemplateExplanation(opts: {
   }
   return en
     ? 'Static GitHub Pages analysis generated from precomputed NASA POWER / UN WPP / World Bank statistical telemetry.'
-    : 'Explicación generada con los cálculos reales locales de VERDICT en modo estático para GitHub Pages.'
+    : 'Explicación generada con los cálculos reales locales de DATEX en modo estático para GitHub Pages.'
 }
 
 export async function staticGet<T>(path: string, signal?: AbortSignal): Promise<T> {

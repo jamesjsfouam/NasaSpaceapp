@@ -404,7 +404,7 @@ export function humanVerdictSummary(
     const needPart = t.years_needed
       ? (t.years_needed > t.n_years
         ? `At this pace and noise level, ~${t.years_needed} years of data are needed to confirm it (we currently have ${t.n_years}).`
-        : `We have ${t.n_years} years, but the two independent tests disagree, so VERDICT stays cautious.`)
+        : `We have ${t.n_years} years, but the two independent tests disagree, so DATEX stays cautious.`)
       : ''
     return `The chart tilts (${rate} per decade in ${period}), but it is NOT YET confirmed: natural year-to-year climate swings are still large enough to mimic this slope. ${needPart}`
   }
@@ -545,7 +545,7 @@ export const UI = {
     phase1: {
       kicker: 'NASA Space Apps Challenge 2026 · Equipo Laboratorio Boreal',
       headline: 'Investiga si el clima de cualquier lugar del mundo está cambiando — sin caer en falsas alarmas.',
-      sub: 'VERDICT transforma más de 40 años de satélites de la NASA en tres pasos simples: comprende el reto, haz zoom a cualquier punto sobre nuestro globo 3D unificado y obtén un veredicto estadístico honesto.',
+      sub: 'DATEX transforma más de 40 años de satélites de la NASA en tres pasos simples: comprende el reto, haz zoom a cualquier punto sobre nuestro globo 3D unificado y obtén un veredicto estadístico honesto.',
       ctaPlanet: 'Explorar el Planeta 3D →',
       ctaCases: 'Ver Casos Guiados',
       stats: {
@@ -563,13 +563,13 @@ export const UI = {
         { icon: '🌡️', q: '¿Qué está cambiando?', desc: 'Convierte tu duda cotidiana (calor, sequía, lluvias, energía solar o viento) en la variable satelital exacta.' },
         { icon: '🌍', q: '¿Dónde ocurre?', desc: 'Sin mapas duplicados: gira la Tierra en 3D, haz zoom a tu ciudad o bosque y marca el punto directamente.' },
         { icon: '📏', q: '¿Cuánto cambia?', desc: 'Calculamos el ritmo por década (pendiente Theil–Sen, inmune a años extremos) y el cambio acumulado.' },
-        { icon: '🛡️', q: '¿Es real o casualidad?', desc: 'El corazón de VERDICT: distingue el cambio real de las rachas naturales gracias a pruebas resistentes a la memoria climática.' },
+        { icon: '🛡️', q: '¿Es real o casualidad?', desc: 'El corazón de DATEX: distingue el cambio real de las rachas naturales gracias a pruebas resistentes a la memoria climática.' },
       ],
       trapTitle: '¿Por qué las gráficas normales engañan? El filtro anti-falsas-alarmas',
       trapDesc: 'Los datos de la Tierra "tienen memoria": un año caliente suele arrastrar al siguiente. Si aplicas una línea de tendencia común sin corregir eso, declaras alarmas falsas casi la mitad de las veces cuando no pasa nada.',
       trapTableTitle: 'Validación por simulación Monte Carlo (30 años sin tendencia real)',
-      trapCols: ['Memoria del clima (φ)', 'Regresión común (Falsas alarmas)', 'VERDICT (Ambas pruebas + corrección)', 'Mejora'],
-      trapNote: 'Con φ = 0,8, la regresión común se equivoca en el 49 % de los casos. VERDICT lo mantiene controlado en 8,2 %.',
+      trapCols: ['Memoria del clima (φ)', 'Regresión común (Falsas alarmas)', 'DATEX (Ambas pruebas + corrección)', 'Mejora'],
+      trapNote: 'Con φ = 0,8, la regresión común se equivoca en el 49 % de los casos. DATEX lo mantiene controlado en 8,2 %.',
       semaforoTitle: 'Cómo leer el Veredicto Honesto',
       semaforo: [
         { tone: 'significant', badge: 'Confirmado', title: 'Tendencia Significativa', desc: 'Supera dos pruebas independientes (Mann-Kendall preblanqueado y regresión con tamaño efectivo). Muy improbable que sea azar.' },
@@ -584,9 +584,9 @@ export const UI = {
     phase2: {
       title: 'Planeta Interactivo Unificado · Macro a Micro',
       sub: 'Gira la Tierra para ver las 2.592 celdas globales con filtro FDR. Acércate (zoom) o busca una ciudad para ver el relieve satelital real y marcar cualquier punto del mundo.',
-      globalBtn: '🌍 Vista Global',
-      zoomZoneBtn: '🔍 Zoom a la Zona',
-      centerBtn: '📍 Centrar Punto',
+      globalBtn: 'Vista Global',
+      zoomZoneBtn: 'Zoom a la Zona',
+      centerBtn: 'Centrar Punto',
       nightToggle: 'Vista nocturna (VIIRS Black Marble)',
       fdrToggle: 'Solo tendencias confirmadas (FDR)',
       legendHelp: 'Opaco = tendencia confirmada que pasa el control global FDR (q = 0,10). Al hacer zoom hacia tu ciudad, la capa se vuelve transparente para mostrarte la imagen satelital real.',
@@ -610,15 +610,15 @@ export const UI = {
       secondSpotLabel: '2.º punto para comparar',
     },
     phase3: {
-      backToPlanet: '🌍 Volver al Planeta 3D (Cambiar zona)',
-      compareShortcut: '⚖️ Comparar con otra zona',
+      backToPlanet: 'Volver al Planeta 3D (Cambiar zona)',
+      compareShortcut: 'Comparar con otra zona',
       tabs: {
-        trend: '🎯 Veredicto y Futuro',
-        scan: '🧭 Radar 14 Variables',
-        compare: '⚖️ Comparar 2 Zonas',
-        satellite: '🛰️ Satélite (1984–2025)',
-        population: '👥 Población (ONU)',
-        relate: '🌾 Clima y Sociedad',
+        trend: 'Veredicto y Futuro',
+        scan: 'Radar 14 Variables',
+        compare: 'Comparar 2 Zonas',
+        satellite: 'Satélite (1984–2025)',
+        population: 'Población (ONU)',
+        relate: 'Clima y Sociedad',
       },
       kpi: {
         what: '¿Qué cambia y dirección?',
@@ -639,7 +639,7 @@ export const UI = {
         title: 'Evolución Histórica y Tendencia',
         simpleBtn: 'Vista Simple (Anual)',
         fullBtn: 'Vista Completa (+ Meses)',
-        guideSimple: 'Cada punto cian es el promedio anual respecto a la media histórica. La línea naranja marca el ritmo sostenido (Theil–Sen).',
+        guideSimple: 'Cada punto azul es el promedio anual respecto a la media histórica. La línea magenta marca el ritmo sostenido (Theil–Sen).',
         guideFull: 'Incluye en gris oscuro las anomalías mensuales desestacionalizadas para ver el ruido de corto plazo junto al promedio anual.',
         yAxis: 'Anomalía',
         monthlyName: 'Meses (sin estación)',
@@ -655,8 +655,8 @@ export const UI = {
         btnPrefix: 'Calcular escenario al año',
       },
       rigor: {
-        summaryStudent: '🔬 Ver detalles técnicos y validación estadística (Para investigadores)',
-        summaryResearcher: '🔬 Motor Estadístico Dual y Validación Monte Carlo',
+        summaryStudent: 'Ver detalles técnicos y validación estadística (Para investigadores)',
+        summaryResearcher: 'Motor Estadístico Dual y Validación Monte Carlo',
         methodTitle: 'Comparativa de los 2 métodos independientes',
         cols: ['Método', 'Pendiente / década', 'IC 95 %', 'Valor p / Estadístico'],
         row1: 'Theil–Sen + Mann-Kendall (preblanqueado)',
@@ -687,7 +687,7 @@ export const UI = {
     phase1: {
       kicker: 'NASA Space Apps Challenge 2026 · Team Laboratorio Boreal',
       headline: 'Investigate if Earth is really changing anywhere on the planet — without falling for false alarms.',
-      sub: 'VERDICT turns 40+ years of NASA satellite & reanalysis records into three intuitive phases: learn how real trends differ from noise, zoom directly into any zone on our unified 3D globe, and explore an honest statistical verdict.',
+      sub: 'DATEX turns 40+ years of NASA satellite & reanalysis records into three intuitive phases: learn how real trends differ from noise, zoom directly into any zone on our unified 3D globe, and explore an honest statistical verdict.',
       ctaPlanet: 'Explore 3D Planet →',
       ctaCases: 'Jump to Guided Cases',
       stats: {
@@ -700,18 +700,18 @@ export const UI = {
         countries: 'Countries Linked',
         countriesSub: 'UN + World Bank',
       },
-      qTitle: 'The 4 detective questions VERDICT answers',
+      qTitle: 'The 4 detective questions DATEX answers',
       questions: [
         { icon: '🌡️', q: 'What is changing?', desc: 'Turns plain questions about heat, drought, rainfall, solar energy, or wind into the right NASA variables.' },
         { icon: '🌍', q: 'Where on Earth?', desc: 'No duplicate maps: spin the 3D Earth, zoom smoothly into your city or watershed, and click any coordinate.' },
         { icon: '📏', q: 'How fast & how much?', desc: 'Measures decadal pace with outlier-resistant Theil–Sen slopes plus total cumulative change.' },
-        { icon: '🛡️', q: 'Real shift or lucky streak?', desc: 'The core of VERDICT: defeats climate "memory" (autocorrelation) so natural cycles do not trigger false alarms.' },
+        { icon: '🛡️', q: 'Real shift or lucky streak?', desc: 'The core of DATEX: defeats climate "memory" (autocorrelation) so natural cycles do not trigger false alarms.' },
       ],
       trapTitle: 'Why ordinary trend lines lie: our Anti-False-Alarm Filter',
       trapDesc: 'Environmental data has "memory": a hot or dry year tends to follow another. Standard trend tests ignore this and raise false alarms up to 49% of the time when nothing is actually changing.',
       trapTableTitle: 'Monte Carlo Simulation Benchmark (30-year series with zero real trend)',
-      trapCols: ['Climate Memory (φ)', 'Ordinary Regression (False Alarms)', 'VERDICT (Dual Test + Bias Fix)', 'Protection'],
-      trapNote: 'At high memory (φ = 0.8), naive regression fails 49% of the time. VERDICT suppresses false positives down to 8.2%.',
+      trapCols: ['Climate Memory (φ)', 'Ordinary Regression (False Alarms)', 'DATEX (Dual Test + Bias Fix)', 'Protection'],
+      trapNote: 'At high memory (φ = 0.8), naive regression fails 49% of the time. DATEX suppresses false positives down to 8.2%.',
       semaforoTitle: 'How to read an Honest Verdict',
       semaforo: [
         { tone: 'significant', badge: 'Confirmed', title: 'Statistically Significant', desc: 'Passes two independent tests (prewhitened Mann-Kendall & effective-N regression). Very unlikely to be luck.' },
@@ -726,9 +726,9 @@ export const UI = {
     phase2: {
       title: 'Unified Interactive Planet · Macro to Local Zoom',
       sub: 'Spin the 3D globe to inspect 2,592 FDR-checked cells worldwide. Zoom right into your city or search by name to reveal crisp satellite terrain and pick any point.',
-      globalBtn: '🌍 Global View',
-      zoomZoneBtn: '🔍 Zoom to Zone',
-      centerBtn: '📍 Center Spot',
+      globalBtn: 'Global View',
+      zoomZoneBtn: 'Zoom to Zone',
+      centerBtn: 'Center Spot',
       nightToggle: 'Night lights (VIIRS Black Marble)',
       fdrToggle: 'Confirmed only (FDR filter)',
       legendHelp: 'Opaque = confirmed trend passing global FDR control (q = 0.10). As you zoom into a region, cell shading fades so real satellite imagery shines through.',
@@ -752,15 +752,15 @@ export const UI = {
       secondSpotLabel: '2nd comparison spot',
     },
     phase3: {
-      backToPlanet: '🌍 Back to 3D Planet (Change Zone)',
-      compareShortcut: '⚖️ Compare with 2nd Zone',
+      backToPlanet: 'Back to 3D Planet (Change Zone)',
+      compareShortcut: 'Compare with 2nd Zone',
       tabs: {
-        trend: '🎯 Verdict & Future',
-        scan: '🧭 14-Variable Radar',
-        compare: '⚖️ Compare 2 Zones',
-        satellite: '🛰️ Satellite (1984–2025)',
-        population: '👥 UN Population',
-        relate: '🌾 Climate & Society',
+        trend: 'Verdict & Future',
+        scan: '14-Variable Radar',
+        compare: 'Compare 2 Zones',
+        satellite: 'Satellite (1984–2025)',
+        population: 'UN Population',
+        relate: 'Climate & Society',
       },
       kpi: {
         what: 'What & Direction',
@@ -781,7 +781,7 @@ export const UI = {
         title: 'Historical Series & Trend',
         simpleBtn: 'Simple View (Annual)',
         fullBtn: 'Full View (+ Monthly)',
-        guideSimple: 'Cyan dots show annual averages relative to the period mean. The orange dashed line is the outlier-resistant Theil–Sen trend.',
+        guideSimple: 'Blue dots show annual averages relative to the period mean. The magenta dashed line is the outlier-resistant Theil–Sen trend.',
         guideFull: 'Adds deseasonalized monthly anomalies in dark slate so you can inspect short-term noise around the annual trend.',
         yAxis: 'Anomaly',
         monthlyName: 'Monthly (deseasonalized)',
@@ -797,8 +797,8 @@ export const UI = {
         btnPrefix: 'Project scenario to',
       },
       rigor: {
-        summaryStudent: '🔬 View full statistical test details & validation (For Researchers)',
-        summaryResearcher: '🔬 Dual Statistical Engine & Monte Carlo Rigor',
+        summaryStudent: 'View full statistical test details & validation (For Researchers)',
+        summaryResearcher: 'Dual Statistical Engine & Monte Carlo Rigor',
         methodTitle: 'Side-by-side results from both independent tests',
         cols: ['Method', 'Slope / decade', '95% CI', 'p-value / Statistic'],
         row1: 'Theil–Sen + Prewhitened Mann-Kendall',

@@ -48,14 +48,14 @@ export function ExplainPanel({ request, lang }: { request: ExplainRequest; lang:
 
   const copy = lang === 'es'
     ? {
-        btn: '✨ Explicar en lenguaje sencillo: ¿por qué ocurre y qué significa?',
+        btn: 'Explicar en lenguaje sencillo: ¿por qué ocurre y qué significa?',
         thinking: 'Analizando cifras…',
         aiTitle: 'Explicación asistida por IA (anclada a cifras reales)',
         tplTitle: 'Resumen científico automático',
         close: 'ocultar',
       }
     : {
-        btn: '✨ Explain in plain language: why might this happen & what does it mean?',
+        btn: 'Explain in plain language: why might this happen & what does it mean?',
         thinking: 'Synthesizing numbers…',
         aiTitle: 'AI Explanation (anchored strictly to engine numbers)',
         tplTitle: 'Automated Scientific Summary',

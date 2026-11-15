@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { COLOR } from './theme'
 import { api, type Catalog, type DemographyResponse } from './api'
 import { ExplainPanel } from './Explain'
 import {
@@ -144,7 +145,7 @@ export function DemographyView({
             </div>
             <div className="kpi-card">
               <span className="kpi-kicker">{copy.unProj}</span>
-              <strong className="num kpi-val" style={{ color: '#34d399' }}>
+              <strong className="num kpi-val" style={{ color: COLOR.official }}>
                 {data.un_value_at_horizon !== null ? fmtNum(data.un_value_at_horizon, lang, 4) : copy.unNA}
               </strong>
               <em className="muted small">{copy.unModel}</em>
@@ -172,7 +173,7 @@ export function DemographyView({
           </div>
 
           {data.forecast?.warnings.map((w) => (
-            <p key={w} className="muted small">⚠ {translateWarning(w, lang)}</p>
+            <p key={w} className="muted small">{translateWarning(w, lang)}</p>
           ))}
           <ExplainPanel request={{ kind: 'demography', country: iso3, indicator, start, to_year: toYear }} lang={lang} />
         </>

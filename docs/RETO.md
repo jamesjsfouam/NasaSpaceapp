@@ -4,7 +4,7 @@
 > Tierra o producidas por modelos, visualizar cómo cambian con el tiempo y determinar qué está
 > cambiando, dónde, cuánto y si esos cambios son "significativos".
 
-## Idea base: *Verdict* (del análisis del equipo)
+## Idea base: *DATEX* (del análisis del equipo)
 
 El análisis completo está en
 [Earth_System_Trend_Detective_analisis_y_solucion.pdf](Earth_System_Trend_Detective_analisis_y_solucion.pdf).

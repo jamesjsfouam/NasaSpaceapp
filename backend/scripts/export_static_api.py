@@ -2,7 +2,7 @@
 
 Genera archivos JSON en `frontend/public/static-api/` usando únicamente datos
 locales del repositorio (sin depender de red externa) para que el frontend de
-VERDICT funcione completo al desplegarse como sitio estático en GitHub Pages.
+DATEX funcione completo al desplegarse como sitio estático en GitHub Pages.
 
 Uso:
     cd backend

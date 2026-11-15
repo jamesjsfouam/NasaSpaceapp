@@ -1,4 +1,4 @@
-# VERDICT · NASA Space Apps Challenge 2026 — Official Submission Copy (English)
+# DATEX · NASA Space Apps Challenge 2026 — Official Submission Copy (English)
 
 > Ready-to-paste English copy for the NASA Space Apps project submission form, judging summary, dataset attributions, AI disclosure, and 30-second / 7-slide demo script.
 
@@ -6,9 +6,9 @@
 
 ## 1. High-Level Summary (Short Pitch)
 
-**VERDICT** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) interactive platform that empowers students and researchers to investigate whether Earth's climate and landscapes are truly changing **anywhere on the planet** — without falling into the statistical trap of false alarms.
+**DATEX** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) interactive platform that empowers students and researchers to investigate whether Earth's climate and landscapes are truly changing **anywhere on the planet** — without falling into the statistical trap of false alarms.
 
-Unlike standard trend dashboards that draw a naive regression line over noisy environmental data, VERDICT combines a **unified 3D Earth Explorer** (zooming smoothly from 2,592 planetary grid cells right down to local satellite terrain) with an **autocorrelation-resistant statistical engine** and **dual Student / Researcher interfaces**.
+Unlike standard trend dashboards that draw a naive regression line over noisy environmental data, DATEX combines a **unified 3D Earth Explorer** (zooming smoothly from 2,592 planetary grid cells right down to local satellite terrain) with an **autocorrelation-resistant statistical engine** and **dual Student / Researcher interfaces**.
 
 ---
 
@@ -22,7 +22,7 @@ In practice, building a tool for students faces two critical hurdles:
 2. **Intimidating UX & fragmented tools:** Students get lost in raw p-values, disconnected 2D/3D maps, and unguided 14-variable tables without understanding *why* a trend is marked "Not Yet Significant."
 
 ### Our Solution: 3 Progressive Phases + Dual Audience Mode
-VERDICT replaces single-page dashboard clutter with a clear **3-Phase Investigation Flow** and a live **Student / Researcher Mode** toggle:
+DATEX replaces single-page dashboard clutter with a clear **3-Phase Investigation Flow** and a live **Student / Researcher Mode** toggle:
 
 1. **Phase 01 · Briefing & Method:** Teaches users the 4 detective questions, demonstrates via Monte Carlo validation why standard regression fails under autocorrelation, explains the 3-level Traffic-Light Verdict (*Confirmed*, *Not Yet + Years Needed*, *No Clear Trend*), and offers 1-click guided case studies.
 2. **Phase 02 · Unified 3D Planet Explorer:** One interactive MapLibre 3D globe powered by **NASA GIBS** (Blue Marble & VIIRS Black Marble) and Esri World Imagery. From orbit, users see **2,592 global 5° cells** filtered with Benjamini–Hochberg False Discovery Rate control ($q = 0.10$). As users search a city or zoom into a region on the *same* globe, grid shading smoothly turns translucent to reveal local satellite terrain where any coordinate can be clicked. A side Mission Dock turns plain questions into up to 3 recommended NASA variables.
@@ -37,7 +37,7 @@ VERDICT replaces single-page dashboard clutter with a clear **3-Phase Investigat
 
 Tested via Monte Carlo simulation (30-year annual series with **zero underlying trend** and AR(1) climate memory $\phi$):
 
-| Climate Memory ($\phi$) | Ordinary Regression (False Positives) | VERDICT Dual Engine (Prewhitened MK + Effective-N OLS + Bias Fix) |
+| Climate Memory ($\phi$) | Ordinary Regression (False Positives) | DATEX Dual Engine (Prewhitened MK + Effective-N OLS + Bias Fix) |
 |---|---|---|
 | $\phi = 0.0$ | 4.8% | **3.6%** |
 | $\phi = 0.4$ | 19.3% | **4.8%** |
@@ -49,7 +49,7 @@ Weatherhead's years-needed estimator ($n^*$) detects real trends at the **88–9
 
 ## 4. NASA & External Data Sources Used
 
-| Dataset / Service | Purpose in VERDICT | Reference URL |
+| Dataset / Service | Purpose in DATEX | Reference URL |
 |---|---|---|
 | **NASA POWER (MERRA-2 & CERES)** | 14 monthly Earth variables worldwide since 1981 (temperature, precipitation, soil moisture, humidity, solar radiation, wind, pressure) | https://power.larc.nasa.gov |
 | **NASA GIBS (Blue Marble & VIIRS Black Marble)** | Orbital daytime & nighttime raster tiles for the 3D Earth Explorer | https://earthdata.nasa.gov/gibs |
@@ -77,4 +77,4 @@ Weatherhead's years-needed estimator ($n^*$) detects real trends at the **88–9
 - **Slide 3 / 0:10–0:16 — Honest Verdict ("Not Yet"):** Open **Phase 3 (Analytics Studio)** in **Student Mode** for Managua temperature (`T2M`). Show the Amber **"Under Observation / Not Yet"** verdict, the visual Certainty Meter, and the Data Sufficiency bar showing how many more years are needed.
 - **Slide 4 / 0:16–0:21 — Opposite Stories Side-by-Side:** Click **Compare 2 Zones** against **Svalbard (Arctic)** — showing Svalbard's rapid, confirmed warming (`+0.73 °C/decade`) vs. Managua's natural swings.
 - **Slide 5 / 0:21–0:26 — Reanalysis Trap & Satellite Proof:** Switch briefly to **Researcher Mode** to show a Pettitt step-change warning on MERRA-2 data, then open the **Satellite Timelapse (1984–2025)** slider to see physical land-cover growth.
-- **Slide 6 / 0:26–0:30 — Close:** Show **UN Population** / **AI Explanation** anchored to real numbers. End on VERDICT logo: *"Ask. Zoom. Get an Honest Verdict."*
+- **Slide 6 / 0:26–0:30 — Close:** Show **UN Population** / **AI Explanation** anchored to real numbers. End on DATEX logo: *"Ask. Zoom. Get an Honest Verdict."*

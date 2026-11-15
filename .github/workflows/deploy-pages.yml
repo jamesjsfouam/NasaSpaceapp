@@ -1,4 +1,4 @@
-name: Deploy VERDICT to GitHub Pages
+name: Deploy DATEX to GitHub Pages
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Despliega VERDICT en GitHub Pages (${GITHUB_SHA::7})"
+          git commit -m "Despliega DATEX en GitHub Pages (${GITHUB_SHA::7})"
           git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

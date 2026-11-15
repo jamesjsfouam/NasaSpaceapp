@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { COLOR } from './theme'
 import {
   Area, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -108,7 +109,7 @@ export function TrendChart({
             <Line
               name={c.monthlyName}
               dataKey="monthly"
-              stroke="#3b4a63"
+              stroke={COLOR.monthly}
               strokeWidth={1}
               dot={false}
               isAnimationActive={false}
@@ -118,7 +119,7 @@ export function TrendChart({
           <Line
             name={c.annualName}
             dataKey="annual"
-            stroke="#3fd0e6"
+            stroke={COLOR.observed}
             strokeWidth={2.2}
             dot={{ r: 3.5 }}
             isAnimationActive={false}
@@ -127,7 +128,7 @@ export function TrendChart({
           <Line
             name={c.trendName}
             dataKey="trend"
-            stroke="#f59e42"
+            stroke={COLOR.trend}
             strokeWidth={2.8}
             dot={false}
             strokeDasharray="6 4"
@@ -139,7 +140,7 @@ export function TrendChart({
               <Area
                 name={c.bandName}
                 dataKey="band"
-                fill="#a78bfa"
+                fill={COLOR.scenario}
                 fillOpacity={0.2}
                 stroke="none"
                 isAnimationActive={false}
@@ -148,7 +149,7 @@ export function TrendChart({
               <Line
                 name={c.scenarioName}
                 dataKey="scenario"
-                stroke="#a78bfa"
+                stroke={COLOR.scenario}
                 strokeWidth={2.5}
                 strokeDasharray="2 3"
                 dot={false}

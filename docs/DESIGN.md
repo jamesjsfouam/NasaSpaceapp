@@ -1,6 +1,6 @@
-# VERDICT · Design System & UX Architecture ("Orbital Observatory")
+# DATEX · Design System & UX Architecture ("Orbital Observatory")
 
-> **Project:** VERDICT — Earth System Trend Detective (NASA Space Apps Challenge 2026)  
+> **Project:** DATEX — Earth System Trend Detective (NASA Space Apps Challenge 2026)  
 > **Team:** Laboratorio Boreal · **Goal:** Radical clarity for students, rigorous statistical honesty for researchers.
 
 ---
@@ -17,7 +17,7 @@ The first prototype concatenated every control, map, globe, form, and statistica
 
 ## 2. Core Architecture: 3 Progressive Phases + Dual Audience Mode
 
-Instead of one crowded page, VERDICT organizes the investigation into **three focused phases** accessible via a sticky top Mission Bar, plus a global **Audience Mode** (`Estudiante` / `Investigador`) and **Language Toggle** (`ES` / `EN`).
+Instead of one crowded page, DATEX organizes the investigation into **three focused phases** accessible via a sticky top Mission Bar, plus a global **Audience Mode** (`Estudiante` / `Investigador`) and **Language Toggle** (`ES` / `EN`).
 
 ```
 [ 01 · Guía y Misión ]  ──▶  [ 02 · Planeta 3D Unificado ]  ──▶  [ 03 · Paneles y Veredicto ]
@@ -29,7 +29,7 @@ Instead of one crowded page, VERDICT organizes the investigation into **three fo
 - **Key Sections:**
   1. **Editorial Hero:** Mission statement, live platform telemetry (`14 NASA variables`, `45-year span`, `2,592 cells`, `249 countries`), and clear primary CTA (`Explorar el Planeta 3D →`).
   2. **The 4 Detective Questions:** Visual cards for *What changes?*, *Where?*, *How much?*, and *Is it statistically significant or natural luck?*
-  3. **Why Normal Graphs Lie (The Anti-False-Alarm Filter):** Plain-language visual explanation of climate "memory" (year-to-year autocorrelation) alongside the **Monte Carlo Validation Table** comparing Standard Regression (`19.3% – 49.0%` false alarms) vs. VERDICT (`3.6% – 8.2%` false alarms).
+  3. **Why Normal Graphs Lie (The Anti-False-Alarm Filter):** Plain-language visual explanation of climate "memory" (year-to-year autocorrelation) alongside the **Monte Carlo Validation Table** comparing Standard Regression (`19.3% – 49.0%` false alarms) vs. DATEX (`3.6% – 8.2%` false alarms).
   4. **The Verdict Traffic Light:** Visual legend of the 3 verdicts (`Confirmed Change`, `In Observation / Not Yet`, `Stable / No Clear Trend`) highlighting that *"Not Yet"* includes an estimate of **how many years of data are needed**.
   5. **1-Click Guided Case Studies:** Curated investigations (Managua, Nicaragua Dry Corridor, Central Amazon, Arctic Svalbard) that jump directly to the planet or statistical studio.
 

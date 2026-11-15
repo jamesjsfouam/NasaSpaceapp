@@ -4,17 +4,7 @@ import { api, type LandCoverResponse, type SatelliteImage } from './api'
 import { ExplainPanel } from './Explain'
 import { fmtNum, formatForecastText, LANDCOVER_LABEL, translateWarning, type Lang } from './i18n'
 import { SeriesChart } from './SeriesChart'
-
-const CLASS_COLORS: Record<string, string> = {
-  'Zona construida': '#f59e42',
-  Cultivos: '#facc15',
-  'Árboles': '#34d399',
-  Agua: '#3fd0e6',
-  'Pastizal y matorral': '#a3e635',
-  'Suelo desnudo': '#c8a27a',
-  'Vegetación inundada': '#5eead4',
-  'Nieve y hielo': '#9aa5b8',
-}
+import { LANDCOVER_COLOR as CLASS_COLORS } from './theme'
 
 export function SatelliteView({
   lat,
@@ -231,7 +221,7 @@ export function SatelliteView({
               </p>
               {cover.built_forecast.warnings.map((w) => (
                 <p key={w} className="muted small" style={{ margin: '2px 0' }}>
-                  ⚠ {translateWarning(w, lang)}
+                  {translateWarning(w, lang)}
                 </p>
               ))}
             </div>

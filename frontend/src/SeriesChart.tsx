@@ -1,3 +1,4 @@
+import { COLOR } from './theme'
 import {
   Area, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -68,14 +69,14 @@ export function SeriesChart({
         />
         <Legend />
         {lastObserved && forecast && <ReferenceLine x={lastObserved} stroke="var(--muted)" strokeDasharray="2 4" />}
-        <Line name={labels.obs} dataKey="history" stroke="#3fd0e6" strokeWidth={2.2} dot={false} isAnimationActive={false} connectNulls />
+        <Line name={labels.obs} dataKey="history" stroke={COLOR.observed} strokeWidth={2.2} dot={false} isAnimationActive={false} connectNulls />
         {official && official.length > 0 && (
-          <Line name={labels.off} dataKey="official" stroke="#34d399" strokeWidth={2.5} dot={false} isAnimationActive={false} connectNulls />
+          <Line name={labels.off} dataKey="official" stroke={COLOR.official} strokeWidth={2.5} dot={false} isAnimationActive={false} connectNulls />
         )}
         {forecast && (
           <>
-            <Area name={labels.band} dataKey="band" fill="#a78bfa" fillOpacity={0.18} stroke="none" isAnimationActive={false} connectNulls />
-            <Line name={labels.scen} dataKey="scenario" stroke="#a78bfa" strokeWidth={2} strokeDasharray="2 3" dot={false} isAnimationActive={false} connectNulls />
+            <Area name={labels.band} dataKey="band" fill={COLOR.scenario} fillOpacity={0.18} stroke="none" isAnimationActive={false} connectNulls />
+            <Line name={labels.scen} dataKey="scenario" stroke={COLOR.scenario} strokeWidth={2} strokeDasharray="2 3" dot={false} isAnimationActive={false} connectNulls />
           </>
         )}
       </ComposedChart>

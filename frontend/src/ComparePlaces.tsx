@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { COLOR } from './theme'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api, DIRECTION_ARROW, type Place, type Region, type TrendResponse } from './api'
 import {
@@ -89,7 +90,7 @@ export function ComparePlaces({
         intro2: 'con cualquier otro lugar del mundo para ver cómo la misma variable puede comportarse de manera opuesta.',
         placeholder: 'Buscar 2.ª ciudad o región (ej.: Svalbard, Lima, Nairobi…)',
         searchBtn: 'Buscar',
-        globeBtn: '🌍 Elegir en el Planeta 3D',
+        globeBtn: 'Elegir en el Planeta 3D',
         quickTitle: 'O prueba comparando con una región clave:',
         busy: 'Calculando ambas tendencias…',
         perDec: '/ década',
@@ -100,7 +101,7 @@ export function ComparePlaces({
         intro2: 'with any other place on Earth to see how the exact same variable can move in opposite directions.',
         placeholder: 'Search 2nd city or region (e.g., Svalbard, Lima, Nairobi…)',
         searchBtn: 'Search',
-        globeBtn: '🌍 Pick on 3D Planet',
+        globeBtn: 'Pick on 3D Planet',
         quickTitle: 'Or compare quickly with a reference biome:',
         busy: 'Computing both trends…',
         perDec: '/ decade',
@@ -196,8 +197,8 @@ export function ComparePlaces({
                 <YAxis width={38} />
                 <Tooltip formatter={(v) => (typeof v === 'number' ? v.toFixed(2) : v)} />
                 <Legend />
-                <Line name={a.label} dataKey="a" stroke="#3fd0e6" strokeWidth={2.4} dot={false} isAnimationActive={false} />
-                <Line name={b.label} dataKey="b" stroke="#f59e42" strokeWidth={2.4} dot={false} isAnimationActive={false} />
+                <Line name={a.label} dataKey="a" stroke={COLOR.spotA} strokeWidth={2.4} dot={false} isAnimationActive={false} />
+                <Line name={b.label} dataKey="b" stroke={COLOR.spotB} strokeWidth={2.4} dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
             <p className="muted small" style={{ margin: '8px 0 0' }}>{copy.chartNote}</p>

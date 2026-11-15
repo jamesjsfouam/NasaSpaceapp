@@ -1,15 +1,15 @@
 <a id="inicio"></a>
 
-# VERDICT — Especificación técnica del proyecto · NASA Space Apps 2026
+# DATEX — Especificación técnica del proyecto · NASA Space Apps 2026
 
 <p align="center">
-  <img src="frontend/public/favicon.svg" alt="Emblema VERDICT · Earth System Trend Detective" width="76" />
+  <img src="frontend/public/favicon.svg" alt="Emblema DATEX · Earth System Trend Detective" width="76" />
 </p>
 
 <p align="center">
-  <img src="docs/capturas/globo_lluvia.png" alt="Globo 3D de VERDICT: tendencia de precipitación 1990–2025 con control FDR" width="48%" />
+  <img src="docs/capturas/globo_lluvia.png" alt="Globo 3D de DATEX: tendencia de precipitación 1990–2025 con control FDR" width="48%" />
   &nbsp;
-  <img src="docs/capturas/globo_temperatura.png" alt="Globo 3D de VERDICT: tendencia de temperatura 1990–2025 con control FDR" width="48%" />
+  <img src="docs/capturas/globo_temperatura.png" alt="Globo 3D de DATEX: tendencia de temperatura 1990–2025 con control FDR" width="48%" />
 </p>
 
 **Equipo:** Laboratorio Boreal · **Universidad Americana (UAM) · Nicaragua** · **Reto:** *Be an Earth System Trend Detective* (NASA Space Apps Challenge 2026)
@@ -20,11 +20,11 @@
 
 [Índice de lectura](#indice) · [English Executive Summary](#english) · [Flujo de usuario](#usuarios) · [Diagramas DFD](#dfd) · [Motor estadístico](#motor) · [Stack técnico](#stack) · [Ejecutar el proyecto](#instalacion)
 
-VERDICT es una plataforma científica abierta e interactiva que permite a **estudiantes, docentes, investigadores y tomadores de decisiones locales** investigar si el clima o la superficie terrestre están cambiando en **cualquier coordenada del planeta**. Responde de forma rigurosa pero comprensible a las cuatro preguntas del reto —**qué** cambia, **dónde**, **cuánto** y si el cambio es **estadísticamente significativo o simple variabilidad natural**— evitando la trampa clásica de las rectas de tendencia ingenuas que producen hasta **49 % de falsas alarmas** cuando los datos ambientales tienen "memoria" (autocorrelación).
+DATEX es una plataforma científica abierta e interactiva que permite a **estudiantes, docentes, investigadores y tomadores de decisiones locales** investigar si el clima o la superficie terrestre están cambiando en **cualquier coordenada del planeta**. Responde de forma rigurosa pero comprensible a las cuatro preguntas del reto —**qué** cambia, **dónde**, **cuánto** y si el cambio es **estadísticamente significativo o simple variabilidad natural**— evitando la trampa clásica de las rectas de tendencia ingenuas que producen hasta **49 % de falsas alarmas** cuando los datos ambientales tienen "memoria" (autocorrelación).
 
 El proyecto combina una sección **guía/educativa** (*Fase 01*) respaldada por el sistema de diseño [Orbital Observatory](docs/DESIGN.md), un **planeta 3D unificado** (*Fase 02*) donde las **2.592 celdas globales de 5°** se vuelven translúcidas al hacer zoom sobre cualquier ciudad o valle para revelar terreno satelital de alta resolución, y un **estudio analítico adaptativo** (*Fase 03*) que alterna en vivo entre **🎓 Modo Estudiante** (medidores visuales de certeza, barra de años suficientes y lenguaje llano) y **🔬 Modo Investigador** (Mann-Kendall con preblanqueo, regresión con $n_{\text{efectivo}}$, saltos Pettitt y tablas comparativas).
 
-Este README constituye la especificación técnica y científica integral de VERDICT: documenta la problemática, los actores y modos de audiencia, la experiencia en tres fases, el modelado lógico DFD (enfoque Kendall y Kendall), el motor estadístico validado por simulación, las 14 variables y 18 rutas REST, la arquitectura física, las pruebas automatizadas y la guía completa de ejecución.
+Este README constituye la especificación técnica y científica integral de DATEX: documenta la problemática, los actores y modos de audiencia, la experiencia en tres fases, el modelado lógico DFD (enfoque Kendall y Kendall), el motor estadístico validado por simulación, las 14 variables y 18 rutas REST, la arquitectura física, las pruebas automatizadas y la guía completa de ejecución.
 
 > **Repositorio:** [GitHub · jamesjsfouam/NasaSpaceapp](https://github.com/jamesjsfouam/NasaSpaceapp)  
 > **Documento de diseño UX:** [docs/DESIGN.md](docs/DESIGN.md) · **Entrega oficial en inglés:** [docs/SUBMISSION_EN.md](docs/SUBMISSION_EN.md) · **Análisis base:** [PDF del equipo](docs/Earth_System_Trend_Detective_analisis_y_solucion.pdf)
@@ -61,7 +61,7 @@ Este README constituye la especificación técnica y científica integral de VER
 
 ## 0. Executive Summary (English · NASA Space Apps 2026)
 
-**VERDICT** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) scientific web application built by **Laboratorio Boreal (UAM Nicaragua)** to investigate climate and land-surface change **anywhere on Earth**.
+**DATEX** (*Be an Earth System Trend Detective*) is a bilingual (**EN / ES**) scientific web application built by **Laboratorio Boreal (UAM Nicaragua)** to investigate climate and land-surface change **anywhere on Earth**.
 
 ### Core Innovation
 1. **3-Phase Progressive Experience (`01 · Briefing` → `02 · Unified 3D Planet` → `03 · Verdict Studio`):** Replaces cluttered single-page dashboards with a guided scientific narrative backed by [docs/DESIGN.md](docs/DESIGN.md).
@@ -69,7 +69,7 @@ Este README constituye la especificación técnica y científica integral de VER
 3. **Dual Audience Mode (`🎓 Student` / `🔬 Researcher`):** Translates statistical mechanics into visual **Statistical Certainty Meters**, **Data Sufficiency Progress Bars** (*years observed vs. years required*), and clean annual charts for students, while exposing full Prewhitened Mann-Kendall ($\tau, p$), Effective-Sample OLS ($n_{\text{eff}}, r, p$), Pettitt step-change alerts, and period-sensitivity flags for researchers.
 4. **Autocorrelation-Resistant Dual Engine (Monte Carlo Validated):** Eliminates up to **6× more false alarms** than naive regression on 30-year zero-trend AR(1) series:
 
-| Climate Memory ($\phi$) | Standard Regression (False Positives) | Prewhitening Only | Effective-$n$ Only | **VERDICT Dual Engine (Both + Bias Fix)** |
+| Climate Memory ($\phi$) | Standard Regression (False Positives) | Prewhitening Only | Effective-$n$ Only | **DATEX Dual Engine (Both + Bias Fix)** |
 | --- | --- | --- | --- | --- |
 | $\phi = 0.0$ (No memory) | 4.8% | 3.8% | 4.3% | **3.6%** |
 | $\phi = 0.4$ (Moderate) | 19.3% | 11.0% | 8.7% | **4.8%** |
@@ -87,7 +87,7 @@ Este README constituye la especificación técnica y científica integral de VER
 
 # I. Proyecto y problemática
 
-Contexto científico, problema estadístico que resuelve VERDICT, audiencia y alineación oficial con el reto de la NASA.
+Contexto científico, problema estadístico que resuelve DATEX, audiencia y alineación oficial con el reto de la NASA.
 
 <a id="problema"></a>
 
@@ -99,7 +99,7 @@ El reto oficial *Be an Earth System Trend Detective* plantea responder cuatro pr
 2. **Interfaz fragmentada en una sola página:** amontonar globos 3D, mapas 2D redundantes, formularios y tablas estadísticas sin narrativa introductoria desorienta al usuario antes de que formule su pregunta.
 3. **Jerga estadística hermética vs. rigor científico:** mostrar únicamente `mk_p`, `ols_p`, $\tau$ o $n_{\text{efectivo}}$ intimida a estudiantes de secundaria o pregrado, mientras que ocultar esos parámetros resta rigor frente a investigadores y jueces científicos.
 
-**Propósito de VERDICT:** democratizar la detección honesta de tendencias ambientales mediante seis módulos integrados:
+**Propósito de DATEX:** democratizar la detección honesta de tendencias ambientales mediante seis módulos integrados:
 
 1. **Guía de Misión y Método (Fase 01):** onboarding visual en menos de 45 segundos sobre las 4 preguntas, la trampa de las falsas alarmas, el semáforo de veredictos y casos guiados en 1 clic.
 2. **Planeta 3D Unificado y Recomendador (Fase 02):** un único globo interactivo que une la vista orbital (2.592 celdas de 5° con control FDR) con el zoom local sobre imágenes satelitales reales, más un asistente de preguntas libres y recomendador determinístico de hasta **3 variables**.
@@ -121,7 +121,7 @@ El reto oficial *Be an Earth System Trend Detective* plantea responder cuatro pr
 
 ## 2. Personas, perfiles de usuario y modos de operación
 
-| Perfil / Actor | Objetivo principal | Modo recomendado y acceso en VERDICT |
+| Perfil / Actor | Objetivo principal | Modo recomendado y acceso en DATEX |
 | --- | --- | --- |
 | **Estudiante (secundaria / universidad)** | Comprender qué está cambiando en su ciudad o región sin ahogarse en estadística | **🎓 Modo Estudiante** (por defecto): medidores de certeza en `%`, barra de años faltantes, gráficas limpias (anual + tendencia), avisos traducidos y casos en 1 clic. |
 | **Investigador o docente** | Auditar significancia, tamaño de muestra efectivo, saltos estructurales y falsos descubrimientos | **🔬 Modo Investigador:** tabla dual completa (`MK p`, `τ`, `OLS p_eff`, `n_eff`, lag-1 `r` corregida), anomalías mensuales, p ajustada Bonferroni/FDR y prueba Pettitt. |
@@ -156,7 +156,7 @@ El sistema visual está especificado en [docs/DESIGN.md](docs/DESIGN.md) e imple
 
 ## 4. Entregables del reto y matriz de cumplimiento
 
-| Requisito oficial de *Be an Earth System Trend Detective* | Cómo lo implementa VERDICT | Archivo / módulo principal |
+| Requisito oficial de *Be an Earth System Trend Detective* | Cómo lo implementa DATEX | Archivo / módulo principal |
 | --- | --- | --- |
 | **1. Identificar variables con potencial de tendencia** | Pregunta libre (IA o reglas por palabras clave), preguntas guiadas (preocupación + tipo de lugar → recomendador de hasta 3 variables) y radar de las 14 variables | `backend/app/catalog.py`, `ai.py`, `GlobeSection.tsx` |
 | **2. Obtener datos de una región o lugar** | Cualquier coordenada del planeta mediante búsqueda global (Open-Meteo), clic en cualquier punto del globo 3D (zoom local) y detección offline de país (GeoNames) | `places.py`, `power.py`, `Globe3D.tsx` |
@@ -320,11 +320,11 @@ Modelado lógico separado de la implementación física siguiendo **Kendall y Ke
 
 ### Diagrama de Contexto (Nivel 0)
 
-El sistema lógico **VERDICT (Proceso 0)** recibe consultas espaciales/temáticas del usuario y coordina la obtención de observaciones ambientales, satelitales, demográficas y socioeconómicas desde seis proveedores externos, devolviendo veredictos estadísticos auditables, escenarios futuros y explicaciones lingüísticas ancladas.
+El sistema lógico **DATEX (Proceso 0)** recibe consultas espaciales/temáticas del usuario y coordina la obtención de observaciones ambientales, satelitales, demográficas y socioeconómicas desde seis proveedores externos, devolviendo veredictos estadísticos auditables, escenarios futuros y explicaciones lingüísticas ancladas.
 
 ```mermaid
 flowchart LR
-    U["Investigador o Estudiante"] -->|"Pregunta, coordenada, variable, modo y idioma"| S(("0. Sistema VERDICT"))
+    U["Investigador o Estudiante"] -->|"Pregunta, coordenada, variable, modo y idioma"| S(("0. Sistema DATEX"))
     S -->|"Veredicto, certeza, años faltantes, gráficas y escena satelital"| U
 
     P["NASA POWER y NASA GIBS"] -->|"Series mensuales 1981+ y teselas orbitales"| S
@@ -440,7 +440,7 @@ Implementado íntegramente en [backend/app/services/trends.py](backend/app/servi
 
 Pruebas reproducibles en [backend/tests/test_trends.py](backend/tests/test_trends.py), [test_forecast.py](backend/tests/test_forecast.py) y [test_relate.py](backend/tests/test_relate.py) sobre series anuales sintéticas de **30 años sin tendencia real** bajo ruido AR(1) con parámetro $\phi$:
 
-| Escenario de memoria climática ($\phi$) | Regresión ordinaria (ingenuo) | Solo preblanqueo MK | Solo $n_{\text{efectivo}}$ | **Motor VERDICT (ambas pruebas + corrección de sesgo)** |
+| Escenario de memoria climática ($\phi$) | Regresión ordinaria (ingenuo) | Solo preblanqueo MK | Solo $n_{\text{efectivo}}$ | **Motor DATEX (ambas pruebas + corrección de sesgo)** |
 | --- | --- | --- | --- | --- |
 | $\phi = 0{,}0$ (sin autocorrelación) | 4,8 % falsos positivos | 3,8 % | 4,3 % | **3,6 % falsos positivos** |
 | $\phi = 0{,}4$ (memoria moderada) | 19,3 % falsos positivos | 11,0 % | 8,7 % | **4,8 % falsos positivos** (4× menos errores) |
@@ -660,7 +660,7 @@ NasaSpaceapp/
 │   │   │   └── samples/           15 archivos JSON sin conexión (7 regiones POWER, 4 demografía OWID, 4 Banco Mundial)
 │   │   └── services/
 │   │       ├── __init__.py
-│   │       ├── trends.py          Motor Verdict (anomalías, Theil-Sen, MK preblanqueado, OLS n_eff, n*, Pettitt)
+│   │       ├── trends.py          Motor DATEX (anomalías, Theil-Sen, MK preblanqueado, OLS n_eff, n*, Pettitt)
 │   │       ├── forecast.py        Extrapolación lineal con IC 95 % y límites físicos
 │   │       ├── relate.py          Correlación aparente vs. sin tendencias (Pearson + Spearman)
 │   │       ├── power.py           Cliente NASA POWER con caché 6 h y fallback local
@@ -687,7 +687,7 @@ NasaSpaceapp/
 ├── frontend/
 │   ├── .env.example               Variables públicas opcionales (VITE_API_URL y VITE_FIREBASE_*)
 │   ├── .oxlintrc.json             Reglas de análisis estático React + TypeScript
-│   ├── index.html                 Entrada Vite (`VERDICT · Earth System Trend Detective`)
+│   ├── index.html                 Entrada Vite (`DATEX · Earth System Trend Detective`)
 │   ├── package.json               React 19, MapLibre GL 5, Recharts 3, TypeScript ~7, Vite 8
 │   ├── package-lock.json
 │   ├── public/favicon.svg         Emblema SVG orbital
